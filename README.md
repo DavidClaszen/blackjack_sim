@@ -1,2 +1,2 @@
-# blackjack_sim
+# Blackjack Simulation in R
 Blackjack and card counting simulation
