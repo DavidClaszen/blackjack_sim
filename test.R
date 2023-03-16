@@ -97,7 +97,7 @@ dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE){
 }
 
 
-# Unused function at the moment
+# Unused function at the moment, used for testing of dealer logic
 dealer_plays <- function(S_17 = TRUE) {
   dealer <<- structure(list(hand = deal_cards(2)))
   dealer$hand <<- dealer_logic(dealer, S_17 = S_17)
@@ -116,7 +116,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
     # While not stand, split, or double, keep asking for action
     while (!(action %in% c("stand", "double", "split"))) {
       counter <- counter + 1
-      has_doubles <- length(player$hand) == 2 & length(unique(player$hand)) == 1
+      can_split <- length(player$hand) == 2 & length(unique(player$hand)) == 1
       print(paste("Your current hand consists of:", 
                   paste(player$hand, collapse = ", "),
                   "with a value of", hand_value(player$hand)))
@@ -128,13 +128,13 @@ player_logic <- function(player, dealer, initial_bet, manual,
       } else if (got_split) {
         action <- readline(prompt = "What do you do? hit / stand: ")
         # Else normal hand, first action, can split, double
-      } else if (counter == 1 & has_doubles) {
+      } else if (counter == 1 & can_split) {
         action <- readline(prompt = "What do you do? hit / stand / double / split: ")
         # Same but can't split
-      } else if (counter == 1 & !has_doubles) {
+      } else if (counter == 1 & !can_split) {
         action <- readline(prompt = "What do you do? hit / stand / double: ")
         # Counter higher than 1 but can split
-      } else if (has_doubles) {
+      } else if (can_split) {
         action <- readline(prompt = "What do you do? hit / stand / split: ")
         # Everything else can only hit or stand
       } else {
@@ -163,6 +163,70 @@ player_logic <- function(player, dealer, initial_bet, manual,
         }
       }
       
+    return(player)
+  } else if (!manual) {
+    
+    # While not stand (s), double (d), split (sp), keep getting new actions
+    while (!(action %in% c("s", "d", "sp"))) {
+      counter <- counter + 1
+      can_split <- length(player$hand) == 2 & length(unique(player$hand)) == 1
+      
+      # If can split and hasn't been split before, logic board for splits
+      if (can_split & !got_split) {
+        lb_to_play <- lb_sp1
+      # Else if soft hand (contains ace), soft logic board
+      } else if (1 %in% player$hand) {
+        lb_to_play <- lb_s1
+      # Else use hard logic board, no aces
+      } else {lb_to_play <- lb_h1}
+      
+      action <- lb_to_play[as.character(hand_value(player_list[[1]]$hand)),
+                           dealer$hand[1]]
+      
+      
+
+      # If 2 card hand derived from a split, can't split, but can double
+      if (got_split & counter == 1) {
+        action <- readline(prompt = "What do you do? hit / stand / double: ")
+        # Else if got split, only hit and stand
+      } else if (got_split) {
+        action <- readline(prompt = "What do you do? hit / stand: ")
+        # Else normal hand, first action, can split, double
+      } else if (counter == 1 & can_split) {
+        action <- readline(prompt = "What do you do? hit / stand / double / split: ")
+        # Same but can't split
+      } else if (counter == 1 & !can_split) {
+        action <- readline(prompt = "What do you do? hit / stand / double: ")
+        # Counter higher than 1 but can split
+      } else if (can_split) {
+        action <- readline(prompt = "What do you do? hit / stand / split: ")
+        # Everything else can only hit or stand
+      } else {
+        action <- readline(prompt = "What do you do? hit / stand: ")
+      }
+      # Perform action
+      player <- player_actions(player, dealer, action, 
+                               manual = manual, S_17 = S_17)
+      if(is.null(player)){return()}
+      
+      
+      # If bust, print result, return hand
+      if (hand_value(player$hand) == 0) {
+        print(paste("Your current hand consists of:", 
+                    paste(player$hand, collapse = ", "), 
+                    "with a value of", hand_value(player$hand)))
+        print("Bust!")
+        return(player)
+        
+        # Doubling down means no more actions possible, quits loop, return hand
+        # Print hand value to let player know what they drew
+      } else if (action == "double") {
+        print(paste("Your current hand consists of:", 
+                    paste(player$hand, collapse = ", "), 
+                    "with a value of", hand_value(player$hand)))        
+      }
+    }
+    
     return(player)
   }
 }
@@ -275,17 +339,38 @@ record_outcomes <- function(){
 }
 
 
+# Creation of logic boards for hard, soft totals, and splits
+rnames_h <- c(17:8)
+rnames_s <- c(10:3)
+cnames <- c(1:10)
+
+lb_h1 <- matrix(c("s", "s", "s", "s", "s", "h", "d", "d", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "d", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "d", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "d", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "d", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "d", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "H", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "d", "H", "h", "h"),
+                  nrow = 10, byrow = FALSE, dimnames = list(rnames_h, cnames))
+
+lb_s1 <- matrix(c("s", "s", "d", "h", "h", "h", "h", "h",
+                  "s", "s", "d", "d", "h", "h", "h", "h",
+                  "s", "s", "d", "d", "d", "d", "h", "h",
+                  "s", "s", "d", "d", "d", "d", "d", "d",
+                  "s", "s", "d", "d", "d", "d", "d", "d",
+                  "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "h", "h", "h", "h", "h", "h", "h"),
+                nrow = 8, byrow = FALSE, dimnames = list(rnames_s, cnames))
 
 
 play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE)
 
-  
-spliplay_game(initial_bet = 1, manual = TRUE)
-
-
-manual <- TRUE
-initial_bet <- 1
-S_17 <- TRUE
 
 
 # outcomes <- replicate(100000, dealer_plays(S_17 = TRUE))
