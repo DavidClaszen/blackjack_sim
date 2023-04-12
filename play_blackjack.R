@@ -183,14 +183,15 @@ player_logic <- function(player, dealer, initial_bet, manual,
       # Else use hard logic board, no aces
       } else {lb_to_play <- lb[[1]]}
       
-      # TODO REMOVE LATER
+      # Print debugging below
       print(player$hand)
       print(dealer$hand)
       print(lb_to_play)
       
       if (can_split) {
         player_lb_loc <- paste(player$hand, collapse = ", ")
-      } else {player_lb_loc <- paste(hand_value(player$hand))}
+        # Truncate below to deal with 21.5 values for blackjack
+      } else {player_lb_loc <- paste(trunc(hand_value(player$hand)))}
       
       action <- lb_to_play[player_lb_loc,
                            as.character(dealer$hand[1])]
