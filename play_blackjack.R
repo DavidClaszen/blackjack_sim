@@ -1,5 +1,5 @@
 # Cleanup 
-rm(list = ls())
+# rm(list = ls())
 
 # Create deck
 deck <- rep(c(1:9, 10, 10, 10, 10), 4)
@@ -109,7 +109,7 @@ dealer_plays <- function(S_17 = TRUE) {
 
 
 player_logic <- function(player, dealer, initial_bet, manual, 
-                         S_17, got_split, logic_board){
+                         S_17, got_split, logic_board, debug = FALSE){
   # Initiate variables
   action <- ""
   counter <- 0
@@ -168,10 +168,11 @@ player_logic <- function(player, dealer, initial_bet, manual,
     
   } else if (!manual) {
     
-    
-    print("Player print at location 1")
-    print(player)
-    
+    if (debug) {
+      print("Player print in player_logic at location 001")
+      print(player)      
+    }
+
     # While not stand (s), double (d), split (sp), keep getting new actions
     while (!(action %in% c("s", "d", "sp"))) {
       counter <- counter + 1
@@ -190,30 +191,37 @@ player_logic <- function(player, dealer, initial_bet, manual,
       } else {lb_to_play <- lb[[1]]}
       
       # Print debugging below
-      print("Player hand, dealer hand, logic board print at location 2")
-      print(player$hand)
-      print(dealer$hand)
-      print(lb_to_play)
-      
+      if (debug) {
+        print("Player hand, dealer hand, logic board, player_logic at location 002")
+        print(player$hand)
+        print(dealer$hand)
+        print(lb_to_play)        
+      }
+
       if (can_split & !got_split) {
         player_lb_loc <- paste(player$hand, collapse = ", ")
+        
         # Truncate below to deal with 21.5 values for blackjack
-
       } else {player_lb_loc <- paste(trunc(hand_value(player$hand)))}
       
-      print("Print location in matrix to play at location 7")
-      print(player_lb_loc)
-      
+      if (debug) {
+        print("Print location in matrix to play, player_logic at location 003")
+        print(player_lb_loc)        
+      }
+
       action <- lb_to_play[player_lb_loc,
                            as.character(dealer$hand[1])]
-      print("Print action at location 3")
-      print(action)
       
+      if (debug) {
+        print("Print action, player_logic at location 004")
+        print(action)        
+      }
+
       # If want to double and can, then double
-      if ("d" %in% action & can_double) {
+      if (grepl("d", action) & can_double) {
         action <- "d"
       # If want to double and can't, switch ds to s and d to h
-      } else if ("d" %in% action & !can_double) {
+      } else if (grepl("d", action) & !can_double) {
         action <- ifelse(action == "ds", "s", "h")
       }
 
@@ -221,33 +229,52 @@ player_logic <- function(player, dealer, initial_bet, manual,
       player <- player_actions(player, dealer, action, 
                                manual = manual, S_17 = S_17)
       
-      print("Print player after action at location 10")
-      print(player)
-      # If hand splits, return null?
-      # TODO Research, fix if needed
-      if(is.atomic(player)){return(player)}
-      
+      if (debug) {
+        # If hand was a split, 2 games were called from inside player_actions
+        # Return value is then a list of results of those two games
+        # Thus no player attribute names
+        print("Print player after action, player_logic at location 005")
+        print(player)
+        print("Class of player: ")
+        print(class(player))
+        print("Type")
+        print(typeof(player))
+        print("Attributes")
+        print(attributes(player))        
+      }
+
+      if (!("names" %in% names(attributes(player)))) {
+        if (debug) {
+          print("No attributes detected at player_logic location 006, returning player")  
+        }
+        
+        return(player)
+      }
+
       # If bust, return hand
       if (hand_value(player$hand) == 0) {
         return(player)
       }
     }
-    print("Print return value from player logic at location 13")
-    print(player)
+    if (debug) {
+      print("Print return value from player_logic at location 007")
+      print(player)      
+    }
     return(player)
   }
 }
 
 
 player_actions <- function(player, dealer, action,
-                           manual, S_17){
-  print("Hand and actions received at location 6")
-  print(player)
-  print(action)
-  print("Dealer and parameters at location 6")
-  print(dealer)
-  print(manual)
-  print(S_17)
+                           manual, S_17, debug = FALSE){
+  if (debug) {
+    print("Hand and actions received at player_actions location 008")
+    print(player)
+    print(action)
+    print("Dealer:")
+    print(dealer)    
+  }
+
   if (action == "h") {
     player$hand <- c(player$hand, deal_cards(n_cards = 1))
     return(player)
@@ -268,10 +295,13 @@ player_actions <- function(player, dealer, action,
     player$hand <- player$hand[1]
     player$hand <- c(player$hand, deal_cards(n_cards = 1))
     
-    print("Print players after split at location 4")
-    print(player)
-    print(player_2)
-    
+    if (debug) {
+      print("Print players after split at player_actions location 009")
+      print("INSIDE OF SEPARATE SPLIT GAMES AFTER THIS LINE -----------------")
+      print(player)
+      print(player_2)      
+    }
+
     play_game(player_list = list(player, player_2),
               dealer = dealer, got_split = TRUE,
               manual = manual, S_17 = S_17)
@@ -289,7 +319,7 @@ game_outcome <- function(player, dealer){
 
 play_game <- function(num_players = 1, initial_bet = 1, logic_board = lb,
                       manual = FALSE, S_17 = TRUE, player_list = NULL, 
-                      dealer = NULL, got_split = FALSE){
+                      dealer = NULL, got_split = FALSE, debug = FALSE){
   # Technically, order of cards dealt is different, but shouldn't matter too much
   # For convenience, dealer is dealt first, then players, each 2 cards
   # We'll also assume all players behave and bet the same for now
@@ -342,30 +372,48 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board = lb,
       }
     }
   } else if (!manual) {
+    
+    game_results <- list()
+    
     for (player in player_list) {
       
-      print("Print player in play game function at location 5")
-      print(player)
+      if (debug) {
+        print("Print player in play game function at play_game location 010")
+        print(player)        
+      }
+      
       player_result <- player_logic(player, dealer, initial_bet,
                                     manual = manual, S_17 = S_17, 
                                     got_split = got_split, 
                                     logic_board = logic_board)
-      print("Print player result value at location 14")
-      print(player_result)
-      # If the game is the result of a split, the outcome got calculated already
-      # It'll be an atomic vector, thus just return that
-      if (is.atomic(player_result)) {
-        return(player_result)
-      }
       
-      if (hand_value(player_result$hand) == 0) {
-        return(c(-1, player_result$bet))
+      if (debug) {
+        print("Print player result value at play_game location 011")
+        print(player_result)        
+      }
+
+      
+      # If a previous run was for two splits, player_result is a list of their results
+      # Doesn't contain attributes, so in that case, return 
+      if (!("names" %in% names(attributes(player_result)))) {
+        if (debug) {print("No attributes detected, returning results at play_game location 012") }
+        return(player_result)
+      } else if (hand_value(player_result$hand) == 0) {
+        if (debug) {print("Adding lost game to list of results at play_game location 013")}
+        game_results <- append(game_results, c(-1, player_result$bet))
       } else {
+        if (debug) {print("Getting result of game at play_game location 014")}
         dealer <- dealer_logic(dealer, S_17 = S_17, manual = manual)
         outcome <- game_outcome(hand_value(player_result$hand), hand_value(dealer$hand))
-        return(c(outcome, player_result$bet))
+        game_results <- append(game_results, c(outcome, player_result$bet))
+        if (debug) {
+          print("Printing current results at play_game location 014")
+          print(game_results)
+        }
       }
     }
+    if (debug) {print("Results printed, output below should be return from function -----") }
+    return(game_results)
   }
 }
 
@@ -392,7 +440,7 @@ lb_h1 <- matrix(
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
-    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "H", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "h", "h", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "h", "h", "h", "h", "h", "h", "h", "h"),
   nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
 
@@ -420,8 +468,6 @@ lb_sp1 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h"),
                 nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
 
-
-
 lb <- list(lb_h1, lb_s1, lb_sp1)
 
 play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb)
@@ -445,6 +491,8 @@ player_bet <- 1
 deck <- rep(c(9), 52)
 current_deck <- shuffle_deck(n_decks)
 
+deck <- rep(1:2, 24)
+
 # outcomes <- replicate(100000, dealer_plays(S_17 = TRUE))
 # outcomes2 <- replicate(100000, dealer_plays(S_17 = FALSE))
 # outcomes <- replicate(10, dealer_plays(S_17 = TRUE))
@@ -455,12 +503,18 @@ current_deck <- shuffle_deck(n_decks)
 # TODO Solve composite hands, 1 %in% player$hand & max_value(player$hand) < 22
 
 
+results <- play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb)
+test <- replicate(100000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb))
 
 
-is.vector(c(0, 1))
-is.vector(player)
-is.atomic(c(0, 1))
-is.atomic(player)
+which(!sapply(unlist(test, recursive = FALSE), is.numeric))
+
+Reduce("+", unlist(test, recursive = FALSE)[c(TRUE, FALSE)])
+
+test_unlisted <- unlist(test, recursive = FALSE)
+
+table(unlist(unlist(test, recursive = FALSE)[c(TRUE, FALSE)]))
+table(unlist(unlist(test, recursive = FALSE)[c(FALSE, TRUE)]))
 
 
 
