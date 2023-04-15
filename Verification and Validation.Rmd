@@ -1,0 +1,111 @@
+---
+title: "Black Simulation Code Verification and Model Validation"
+author: "David Claszen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(janitor)
+source("play_blackjack.R")
+```
+
+
+# Hand Value Calculations
+
+Given a set of test data, the resulting calculated values should be identical.
+
+```{r}
+test_cards = list(c(10, 1), c(10, 5, 6), c(10, 1, 1),
+    c(7, 6, 1, 5), c(3, 6, 1, 1),
+    c(2, 3, 4, 10), c(5, 1, 9, 1, 1),
+    c(5, 10, 7), c(10, 9, 1, 1, 1))
+test_cards_val = c(21.5, 21, 12, 19, 21, 19, 17, 0, 0)
+
+identical(test_cards_val, sapply(test_cards, hand_value))
+
+```
+
+# Game Outcome Calculations
+
+Given text values for dealer and player hand values, the calculated outcomes should match the expected outcomes.
+
+```{r}
+test_vals = c(0, 16, 19, 20, 21, 21.5)
+testWinnings =
+ matrix(c(-1, 1, 1, 1, 1, 1.5,
+   -1, 0, 1, 1, 1, 1.5,
+   -1, -1, 0, 1, 1, 1.5,
+   -1, -1, -1, 0, 1, 1.5,
+   -1, -1, -1, -1, 0, 1.5,
+   -1, -1, -1, -1, -1, 0),
+   nrow = length(test_vals), byrow = TRUE)
+dimnames(testWinnings) = list(dealer = test_vals,
+      player = test_vals)
+testWinnings
+```
+
+```{r}
+check = testWinnings
+check[] = NA
+for(i in seq_along(test_vals)) {
+  for(j in seq_along(test_vals)) {
+ check[i, j] = game_outcome(test_vals[j], test_vals[i])
+ }
+}
+identical(check, testWinnings)
+```
+
+# Dealer Logic - Soft 17 Rules
+
+A soft hand is a hand containing an ace that can still be either a 1 or an 11. A hard hand either holds no ace, or holds an ace that cannot be counted as 11 as it would push the total value above 21.
+
+In blackjack, the dealer must draw cards until their hand achieves a total value of 17 or more. A common rule variation is whether the dealer must hit on a soft 17 (H17) or whether they can stand (S17). Having to hit on a soft 17 should result in fewer 17's, more values above 17, and more busts where the code counts the value as 0. The differences after 300.000 games for each variation is shown below. This will take about half a minute to run.
+
+
+```{r}
+games_to_run <- 300000
+dealer_outcomes <- data.frame(Outcomes = replicate(games_to_run, 
+                                                   dealer_plays(S_17 = TRUE,
+                                                                debug = TRUE)),
+                              Rule = "Stand on Soft 17") %>% 
+  bind_rows(data.frame(Outcomes = replicate(games_to_run, dealer_plays(S_17 = FALSE,
+                                                                debug = TRUE)), 
+                       Rule = "Hit on Soft 17"))
+
+ggplot(dealer_outcomes, aes(x=Outcomes, color=Rule)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity", binwidth = 1)
+```
+
+```{r}
+hit_on_soft <- dealer_outcomes[(dealer_outcomes$Rule == "Hit on Soft 17"), ]$Outcomes
+stand_on_soft <- dealer_outcomes[dealer_outcomes$Rule == "Stand on Soft 17", ]$Outcomes
+
+tabyl(hit_on_soft, sort = TRUE)
+```
+```{r}
+tabyl(stand_on_soft, sort = TRUE)
+```
+
+```{r}
+
+results <- play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
+test_1 <- replicate(10000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1))
+test_2 <- replicate(10000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1))
+Reduce("+", unlist(test_1, recursive = FALSE)[c(TRUE, FALSE)])
+Reduce("+", unlist(test_2, recursive = FALSE)[c(TRUE, FALSE)])
+
+test_unlisted <- unlist(test, recursive = FALSE)
+table(unlist(unlist(test, recursive = FALSE)[c(TRUE, FALSE)]))
+table(unlist(unlist(test, recursive = FALSE)[c(FALSE, TRUE)]))
+
+```
+
+
+

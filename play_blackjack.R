@@ -65,32 +65,35 @@ report_dealer <- function(dealer, only_hole = TRUE){
   }
 }
 
-
 # Default for dealer
-dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE){
+dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, debug = FALSE){
   current_hand <- dealer$hand
   # Keep checking while at or below 17 but not bust
   while (hand_value(current_hand) <= 17 && hand_value(current_hand) != 0) {
-
-    # Make sure there's still cards in deck before drawing
-    reshuffle_check(required_cards = 1)
+    
+    # Check whether hand is hard or not regardless of aces
+    is_hard <- ((sum(current_hand) + 10) > 21)
+    
+    # Make sure there's still cards in deck before drawing if debugging
+    # Maximally need 5 additional cards
+    if (debug) { reshuffle_check(required_cards = 5) }
     # If below 17, hit
     if (hand_value(current_hand) < 17) {
       current_hand <- c(current_hand, deal_cards(n_cards = 1))
-    # else, stand with hard 17
-    } else if (hand_value(current_hand) == 17 && all(current_hand != 1)) {
+      # else, stand with hard 17
+    } else if (hand_value(current_hand) == 17 && is_hard) {
       dealer$hand <- current_hand
       return(dealer)
-    # else stand if at 17 and using S17 rule
+      # else stand if at 17 and using S17 rule and hand is soft
     } else if (hand_value(current_hand) == 17 
                && S_17
-               && any(current_hand == 1)) {
+               && !is_hard) {
       dealer$hand <- current_hand
       return(dealer)
-    # else if at 17 and ace present and using H17 rule, hit, stay in loop
+      # else if at 17 and using H17 rule and hand is soft, hit, stay in loop
     } else if (hand_value(current_hand) == 17 
                && !S_17 
-               && any(current_hand == 1)) {
+               && !is_hard) {
       current_hand <- c(current_hand, deal_cards(n_cards = 1))
     }
   }
@@ -99,10 +102,12 @@ dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE){
 }
 
 
-# Unused function at the moment, used for testing of dealer logic
-dealer_plays <- function(S_17 = TRUE) {
-  dealer <<- structure(list(hand = deal_cards(2)))
-  dealer$hand <<- dealer_logic(dealer, S_17 = S_17)
+# Used for testing of dealer logic
+dealer_plays <- function(S_17 = TRUE, debug = TRUE) {
+  dealer <- vector("list", 1)
+  names(dealer) <- c("hand")
+  dealer$hand <- deal_cards(n_cards = 2)
+  dealer <- dealer_logic(dealer, S_17 = S_17, debug = debug)
   return(hand_value(dealer$hand))
 }
 
@@ -115,7 +120,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
   counter <- 0
   
   if (manual) {
-
+    
     # While not stand, split, or double, keep asking for action
     while (!(action %in% c("s", "d", "sp"))) {
       counter <- counter + 1
@@ -145,9 +150,10 @@ player_logic <- function(player, dealer, initial_bet, manual,
       }
       # Perform action
       player <- player_actions(player, dealer, action, 
-                               manual = manual, S_17 = S_17)
+                               manual = manual, S_17 = S_17,
+                               logic_board = logic_board)
       if(is.null(player)){return()}
- 
+      
       # If bust, print result, return hand
       if (hand_value(player$hand) == 0) {
         print(paste("Your current hand consists of:", 
@@ -158,12 +164,12 @@ player_logic <- function(player, dealer, initial_bet, manual,
         
         # Doubling down means no more actions possible, quits loop, return hand
         # Print hand value to let player know what they drew
-        } else if (action == "double") {
-          print(paste("Your current hand consists of:", 
-                      paste(player$hand, collapse = ", "), 
-                      "with a value of", hand_value(player$hand)))  
-        }
+      } else if (action == "double") {
+        print(paste("Your current hand consists of:", 
+                    paste(player$hand, collapse = ", "), 
+                    "with a value of", hand_value(player$hand)))  
       }
+    }
     return(player)
     
   } else if (!manual) {
@@ -172,7 +178,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
       print("Player print in player_logic at location 001")
       print(player)      
     }
-
+    
     # While not stand (s), double (d), split (sp), keep getting new actions
     while (!(action %in% c("s", "d", "sp"))) {
       counter <- counter + 1
@@ -183,12 +189,12 @@ player_logic <- function(player, dealer, initial_bet, manual,
       
       # If can split and hasn't been split before, logic board for splits
       if (can_split & !got_split) {
-        lb_to_play <- lb[[3]]
-      # Else if soft hand (contains ace), soft logic board
+        lb_to_play <- logic_board[[3]]
+        # Else if soft hand (contains ace), soft logic board
       } else if (1 %in% player$hand) {
-        lb_to_play <- lb[[2]]
-      # Else use hard logic board, no aces
-      } else {lb_to_play <- lb[[1]]}
+        lb_to_play <- logic_board[[2]]
+        # Else use hard logic board, no aces
+      } else {lb_to_play <- logic_board[[1]]}
       
       # Print debugging below
       if (debug) {
@@ -197,7 +203,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
         print(dealer$hand)
         print(lb_to_play)        
       }
-
+      
       if (can_split & !got_split) {
         player_lb_loc <- paste(player$hand, collapse = ", ")
         
@@ -208,7 +214,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
         print("Print location in matrix to play, player_logic at location 003")
         print(player_lb_loc)        
       }
-
+      
       action <- lb_to_play[player_lb_loc,
                            as.character(dealer$hand[1])]
       
@@ -216,18 +222,19 @@ player_logic <- function(player, dealer, initial_bet, manual,
         print("Print action, player_logic at location 004")
         print(action)        
       }
-
+      
       # If want to double and can, then double
       if (grepl("d", action) & can_double) {
         action <- "d"
-      # If want to double and can't, switch ds to s and d to h
+        # If want to double and can't, switch ds to s and d to h
       } else if (grepl("d", action) & !can_double) {
         action <- ifelse(action == "ds", "s", "h")
       }
-
+      
       # Perform action
       player <- player_actions(player, dealer, action, 
-                               manual = manual, S_17 = S_17)
+                               manual = manual, S_17 = S_17, 
+                               logic_board = logic_board)
       
       if (debug) {
         # If hand was a split, 2 games were called from inside player_actions
@@ -242,7 +249,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
         print("Attributes")
         print(attributes(player))        
       }
-
+      
       if (!("names" %in% names(attributes(player)))) {
         if (debug) {
           print("No attributes detected at player_logic location 006, returning player")  
@@ -250,7 +257,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
         
         return(player)
       }
-
+      
       # If bust, return hand
       if (hand_value(player$hand) == 0) {
         return(player)
@@ -266,7 +273,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
 
 
 player_actions <- function(player, dealer, action,
-                           manual, S_17, debug = FALSE){
+                           manual, S_17, debug = FALSE, logic_board){
   if (debug) {
     print("Hand and actions received at player_actions location 008")
     print(player)
@@ -274,7 +281,7 @@ player_actions <- function(player, dealer, action,
     print("Dealer:")
     print(dealer)    
   }
-
+  
   if (action == "h") {
     player$hand <- c(player$hand, deal_cards(n_cards = 1))
     return(player)
@@ -301,23 +308,24 @@ player_actions <- function(player, dealer, action,
       print(player)
       print(player_2)      
     }
-
+    
     play_game(player_list = list(player, player_2),
               dealer = dealer, got_split = TRUE,
-              manual = manual, S_17 = S_17)
+              manual = manual, S_17 = S_17,
+              logic_board = logic_board)
   }
 }
 
 
 game_outcome <- function(player, dealer){
   (player > dealer & player > 21) * 1.5 +
-  (player > dealer & player <= 21) * 1 +
-  (player < dealer|player == 0) * -1
+    (player > dealer & player <= 21) * 1 +
+    (player < dealer|player == 0) * -1
 }
 
 
 
-play_game <- function(num_players = 1, initial_bet = 1, logic_board = lb,
+play_game <- function(num_players = 1, initial_bet = 1, logic_board,
                       manual = FALSE, S_17 = TRUE, player_list = NULL, 
                       dealer = NULL, got_split = FALSE, debug = FALSE){
   # Technically, order of cards dealt is different, but shouldn't matter too much
@@ -361,14 +369,14 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board = lb,
         report_dealer(dealer, only_hole = FALSE)
         if (outcome == 1.5) {
           result_txt <- paste("Blackjack! You win", outcome, "times", player_result$bet)
-          } else if (outcome == 1) {
-            result_txt <- paste("You win", outcome, "times", player_result$bet)
-          } else if (outcome == -1) {
-            result_txt <- paste("You lose your bet of", player_result$bet)
-          } else if (outcome == 0) {
-            result_txt <- paste("Tie! Bets are returned")
-          }
-          print(result_txt)
+        } else if (outcome == 1) {
+          result_txt <- paste("You win", outcome, "times", player_result$bet)
+        } else if (outcome == -1) {
+          result_txt <- paste("You lose your bet of", player_result$bet)
+        } else if (outcome == 0) {
+          result_txt <- paste("Tie! Bets are returned")
+        }
+        print(result_txt)
       }
     }
   } else if (!manual) {
@@ -391,7 +399,7 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board = lb,
         print("Print player result value at play_game location 011")
         print(player_result)        
       }
-
+      
       
       # If a previous run was for two splits, player_result is a list of their results
       # Doesn't contain attributes, so in that case, return 
@@ -430,7 +438,7 @@ rnames_sp <- c("1, 1", "10, 10", "9, 9", "8, 8", "7, 7",
 cnames <- c(2:10, 1)
 
 # Common strategy widely available online
-# For example https://www.blackjackapprenticeship.com/blackjack-strategy-charts/
+# Such as https://www.blackjackapprenticeship.com/blackjack-strategy-charts/
 lb_h1 <- matrix(
   c("s", "s", "s", "s", "s", "s", "s", "s", "s", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "h", "d", "d", "d", "h", "h", "h", "h", "h", "h",
@@ -466,56 +474,59 @@ lb_sp1 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "h", "h", "d", "h", "h", "h",
                    "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h",
                    "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h"),
-                nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
+                 nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
 
-lb <- list(lb_h1, lb_s1, lb_sp1)
+lb_1 <- list(lb_h1, lb_s1, lb_sp1)
 
-play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb)
-play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb)
+# Simplified strategy following rules of thumb based on the perfect strategy
+# https://blog.prepscholar.com/blackjack-strategy
 
-num_players <- 1
-initial_bet <- 1
-player <- player_list[[1]]
-paste(player$hand, collapse = ", ")
+lb_h2 <- matrix(
+  c("s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h"),
+  nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
 
+lb_s2 <- matrix(c("s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
+                  "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
+                  "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
+                  "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
+                  "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h"),
+                nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
 
-player_list <- vector("list", num_players)
-player_list[[1]] <- vector("list", 2)
-names(player_list[[1]]) <- c("hand", "bet")
-player_list[[1]]$bet <- initial_bet
-player_list[[1]]$hand <- deal_cards(n_cards = 1)
-player_list[[1]][1]
-player_bet <- 1
+lb_sp2 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "s", "sp", "h", "h", "d", "h", "h", "h",
+                   "sp", "s", "s", "sp", "h", "h", "d", "h", "h", "h",
+                   "sp", "s", "s", "sp", "h", "h", "d", "h", "h", "h",
+                   "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h",
+                   "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h"),
+                 nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
+
+lb_2 <- list(lb_h2, lb_s2, lb_sp2)
+
+# play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb_1)
+#play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
+
 
 # Alternate deck full of split opportunities
-deck <- rep(c(9), 52)
-current_deck <- shuffle_deck(n_decks)
-
-deck <- rep(1:2, 24)
-
-# outcomes <- replicate(100000, dealer_plays(S_17 = TRUE))
-# outcomes2 <- replicate(100000, dealer_plays(S_17 = FALSE))
-# outcomes <- replicate(10, dealer_plays(S_17 = TRUE))
-# hist(outcomes, breaks = 15:28)
-# hist(outcomes2, breaks = 15:28)
-# max(outcomes2)
-
-# TODO Solve composite hands, 1 %in% player$hand & max_value(player$hand) < 22
-
-
-results <- play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb)
-test <- replicate(100000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb))
-
-
-which(!sapply(unlist(test, recursive = FALSE), is.numeric))
-
-Reduce("+", unlist(test, recursive = FALSE)[c(TRUE, FALSE)])
-
-test_unlisted <- unlist(test, recursive = FALSE)
-
-table(unlist(unlist(test, recursive = FALSE)[c(TRUE, FALSE)]))
-table(unlist(unlist(test, recursive = FALSE)[c(FALSE, TRUE)]))
-
+#deck <- rep(c(9), 52)
+#current_deck <- shuffle_deck(n_decks)
 
 
 
