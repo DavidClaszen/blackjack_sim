@@ -29,8 +29,6 @@ place_bet <- function(player, bet){
 
 # Draw cards from current_deck
 deal_cards <- function(n_cards = 2){
-  # Make sure deck is still large enough, otherwise shuffle
-  reshuffle_check(required_cards = n_cards)
   deck_copy <- current_deck
   indices <- sample(1:length(deck_copy), n_cards)
   # Remove drawn cards from deck; find better solution to globalenv?
@@ -104,6 +102,7 @@ dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, debug = FALSE){
 
 # Used for testing of dealer logic
 dealer_plays <- function(S_17 = TRUE, debug = TRUE) {
+  reshuffle_check(required_cards = 10)
   dealer <- vector("list", 1)
   names(dealer) <- c("hand")
   dealer$hand <- deal_cards(n_cards = 2)
@@ -332,7 +331,13 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
   # For convenience, dealer is dealt first, then players, each 2 cards
   # We'll also assume all players behave and bet the same for now
   # If game doesn't come from a split game, create new hands, else use existing
-  if (!got_split) {
+  if (!got_split & is.null(player_list)) {
+    # Make sure deck is still large enough, otherwise shuffle
+    # Need 11 cards for one player max; four aces, four 2's, three 3's equals 21
+    # Add 4 for safety, splits can demand more
+    reshuffle_check(required_cards = 15 * num_players)
+    
+    # Deal with dealer
     dealer <- vector("list", 1)
     names(dealer) <- c("hand")
     dealer$hand <- deal_cards(n_cards = 2)
@@ -348,7 +353,7 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
   }
   
   if (manual) {
-    # Play the game to completion in turns for each player against same dealer
+
     for (player in player_list) {
       # Report hole card
       report_dealer(dealer, only_hole = TRUE)
@@ -382,7 +387,9 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
   } else if (!manual) {
     
     game_results <- list()
+    player_results <- list()
     
+    # Get final player hands based on dealer hand and player logic
     for (player in player_list) {
       
       if (debug) {
@@ -390,30 +397,45 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
         print(player)        
       }
       
-      player_result <- player_logic(player, dealer, initial_bet,
-                                    manual = manual, S_17 = S_17, 
-                                    got_split = got_split, 
-                                    logic_board = logic_board)
-      
+      player_results <- append(player_results,
+                               list(player_logic(player, dealer, initial_bet,
+                                            manual = manual, S_17 = S_17, 
+                                            got_split = got_split, 
+                                            logic_board = logic_board)))
       if (debug) {
         print("Print player result value at play_game location 011")
-        print(player_result)        
+        print(player_results)        
       }
-      
-      
-      # If a previous run was for two splits, player_result is a list of their results
-      # Doesn't contain attributes, so in that case, return 
-      if (!("names" %in% names(attributes(player_result)))) {
-        if (debug) {print("No attributes detected, returning results at play_game location 012") }
-        return(player_result)
-      } else if (hand_value(player_result$hand) == 0) {
+    }
+
+    # If a previous run was for two splits, player_logic returns a list of their results
+    # Doesn't contain attributes, so in that case, return results
+    if (!("names" %in% names(attributes(player_results[[1]])))) {
+      if (debug) {print("No attributes detected, returning results at play_game location 012") }
+      return(player_results)
+    }        
+        
+    # Check whether all players went bust, in that case dealer doesn't need to draw
+    all_bust <- all(sapply(player_results, function(x) hand_value(x$hand) == 0))
+
+    if (all_bust) {
+      for (player in player_results) {
+        game_results <- append(game_results, c(-1, player$bet))
+      }
+      return(game_results)
+    }
+    
+    # Else, go through each player separately but against the same dealer result
+    dealer <- dealer_logic(dealer, S_17 = S_17, manual = manual)
+    
+    for (player in player_results) {
+      if (hand_value(player$hand) == 0) {
         if (debug) {print("Adding lost game to list of results at play_game location 013")}
-        game_results <- append(game_results, c(-1, player_result$bet))
+        game_results <- append(game_results, c(-1, player$bet))
       } else {
         if (debug) {print("Getting result of game at play_game location 014")}
-        dealer <- dealer_logic(dealer, S_17 = S_17, manual = manual)
-        outcome <- game_outcome(hand_value(player_result$hand), hand_value(dealer$hand))
-        game_results <- append(game_results, c(outcome, player_result$bet))
+        outcome <- game_outcome(hand_value(player$hand), hand_value(dealer$hand))
+        game_results <- append(game_results, c(outcome, player$bet))
         if (debug) {
           print("Printing current results at play_game location 014")
           print(game_results)
@@ -527,8 +549,5 @@ lb_2 <- list(lb_h2, lb_s2, lb_sp2)
 # Alternate deck full of split opportunities
 #deck <- rep(c(9), 52)
 #current_deck <- shuffle_deck(n_decks)
-
-
-
 
 

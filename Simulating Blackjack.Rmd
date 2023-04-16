@@ -1,0 +1,134 @@
+---
+title: "Simulating Blackjac"
+author: "David Claszen"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+
+# Code
+
+## Outline
+
+In broad strokes, the code does the following. N-number of decks are initialized and shuffled. `play_game` calls on all other required functions so as to simulate one game of blackjack. If the game to be played is fresh and not the result from a split, it deals 2 cards to the dealer, creates as many players as requested, places their initial bets, and deals them 2 cards using `deal_cards`. Then, each player action is decided on through logical operators and look-up tables in the function `player_logic`. Each strategy consists of a set of three given look-up tables (one for hard totals, one for soft totals, and one for splits), where the recommended action is looked up from rows of player hand values and columns of hole card values of the dealer. `player_actions` executes the taken action, either to stand, hit, double, or split. The resulting hand then goes back to `play_game`. If the player didn't go bust already, `dealer_logic` runs through the fixed rules for a dealer to determine their final hand. Based on that value, and the final player hand, the outcome is determined. In the case of a split, each hand is given an additional card within `player_actions`. Together with the existing dealer hand, these two hands are send back to the `play_game` function to determine their outcome. There is also a manual option to play some games of blackjack against the computer based on your input actions. This wasn't the focus of this project and hasn't been tested thoroughly, but it works well enough.
+
+## Improvements
+
+Currently, using multiple players works largely as it should, except for when a player splits. The way this is dealt with means that those two split hands go off on their own, play a game with their dealer, record their results, and then the other players continue. This can mean that the dealer will most likely draw different cards to determine the outcome of those split games compared to the games of the other players. This isn't a problem for the simulations below because those will only consider a single player. 
+
+
+
+
+```{r}
+
+results <- play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
+test_1 <- replicate(1000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1))
+test_2 <- replicate(100000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = FALSE, logic_board = lb_1))
+Reduce("+", unlist(test_1, recursive = FALSE)[c(TRUE, FALSE)])
+Reduce("+", unlist(test_2, recursive = FALSE)[c(TRUE, FALSE)])
+
+
+table(unlist(unlist(test_1, recursive = TRUE)[c(TRUE, FALSE)]))
+table(unlist(unlist(test_1, recursive = TRUE)[c(FALSE, TRUE)]))
+
+table(unlist(unlist(test_2, recursive = TRUE)[c(TRUE, FALSE)]))
+table(unlist(unlist(test_2, recursive = TRUE)[c(FALSE, TRUE)]))
+
+
+
+unlist(unlist(test_1, recursive = TRUE)[c(TRUE, FALSE)])
+
+```
+
+
+```{r}
+
+replicate_games <- function(n_runs, m_replications, S_17, logic_board){
+  
+  simulation_results <- data.frame()
+  i <- 0
+  for (a_run in 1:n_runs) {
+    i <- i + 1
+    run_results <- replicate(m_replications,
+                               play_game(num_players = 1,
+                                         initial_bet = 1,
+                                         manual = FALSE,
+                                         S_17 = S_17,
+                                         logic_board = logic_board))
+    run_df <- data.frame(game_outcomes = unlist(unlist(run_results, recursive = TRUE)[c(TRUE, FALSE)]),
+                           bets = unlist(unlist(run_results, recursive = TRUE)[c(FALSE, TRUE)]),
+                           run_num = i)
+    simulation_results <- simulation_results %>% 
+      bind_rows(run_df)
+  }
+  return(simulation_results)
+}
+
+
+df <- replicate_games(n_runs = 1000, m_replications = 100, S_17 = TRUE, logic_board = lb_1)
+
+
+
+get_sample_means <- function(df) {
+  df %>% 
+    mutate(net_result = game_outcomes * bets) %>% 
+    group_by(run_num) %>% 
+    summarise(outcome_means = mean(game_outcomes),
+              bet_means = mean(bets),
+              net_result_means = mean(net_result))
+}
+
+get_grand_sample_mean <- function(df) {
+  df %>% 
+    ungroup() %>% 
+    summarise(outcome_mean = mean(outcome_means),
+              bet_mean = mean(bet_means),
+              net_result_mean = mean(net_result_means))
+}
+
+
+get_sample_variance <- function(df) {
+  df %>% 
+    mutate(across(contains("means"), ~ (. - mean(.))^2)) %>% 
+    summarise(across(contains("means"), ~ sum(.) / (n() - 1))) %>% 
+    rename_with(~ gsub("means", "variance", .), contains("means"))
+}
+
+s_means <- get_sample_means(df)
+z_bars <- get_grand_sample_mean(get_sample_means(df))
+sample_vars <- get_sample_variance(get_sample_means(df))
+
+
+get_conf_interval <- function(z_bar, reps, sample_var, alpha) {
+  t_value <- qt(1 - (alpha / 2), reps - 1)
+  lower_bound <- z_bar - t_value * sqrt(sample_var / reps)
+  upper_bound <- z_bar + t_value * sqrt(sample_var / reps)
+  return(c(lower_bound, upper_bound))
+}
+
+
+
+get_conf_interval(z_bar = -0.02786077, reps = 1000, sample_var = 0.00916573, alpha = 0.05)
+
+
+ggplot(s_means, aes(x=outcome_means)) +
+  geom_histogram(fill="white", color = "black", alpha=0.5, position="identity", binwidth = 0.01)
+```
+
+
+
+
+
+
+
+
+
+
+

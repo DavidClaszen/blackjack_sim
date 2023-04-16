@@ -16,10 +16,13 @@ library(janitor)
 source("play_blackjack.R")
 ```
 
+# Verification and Testing
 
-# Hand Value Calculations
+The two tests below are borrowed from chapter 9 from *Data Science in R*^[Nolan, D. A., & Lang, D. T. (2015). *Data science in R: a case studies approach to computational reasoning and problem solving*, chapter 9.2]. 
 
-Given a set of test data, the resulting calculated values should be identical.
+## Hand Value Calculations
+
+Given a set of test data and outcomes, the resulting calculated values should be identical.
 
 ```{r}
 test_cards = list(c(10, 1), c(10, 5, 6), c(10, 1, 1),
@@ -32,7 +35,7 @@ identical(test_cards_val, sapply(test_cards, hand_value))
 
 ```
 
-# Game Outcome Calculations
+## Game Outcome Calculations
 
 Given text values for dealer and player hand values, the calculated outcomes should match the expected outcomes.
 
@@ -62,22 +65,29 @@ for(i in seq_along(test_vals)) {
 identical(check, testWinnings)
 ```
 
-# Dealer Logic - Soft 17 Rules
+# Model Validation
+
+## Dealer Logic - Soft 17 Rules
 
 A soft hand is a hand containing an ace that can still be either a 1 or an 11. A hard hand either holds no ace, or holds an ace that cannot be counted as 11 as it would push the total value above 21.
 
-In blackjack, the dealer must draw cards until their hand achieves a total value of 17 or more. A common rule variation is whether the dealer must hit on a soft 17 (H17) or whether they can stand (S17). Having to hit on a soft 17 should result in fewer 17's, more values above 17, and more busts where the code counts the value as 0. The differences after 300.000 games for each variation is shown below. This will take about half a minute to run.
+In blackjack, the dealer must draw cards until their hand achieves a total value of 17 or more. A common rule variation is whether the dealer must hit on a soft 17 (H17) or whether they can stand (S17). Having to hit on a soft 17 should result in fewer 17's, more values above 17, and more busts where the code counts the value as 0. The differences after 300.000 games for each variation are shown below, with each series of runs starting from the same seed. This will take about half a minute to run.
 
 
 ```{r}
 games_to_run <- 300000
-dealer_outcomes <- data.frame(Outcomes = replicate(games_to_run, 
-                                                   dealer_plays(S_17 = TRUE,
-                                                                debug = TRUE)),
-                              Rule = "Stand on Soft 17") %>% 
-  bind_rows(data.frame(Outcomes = replicate(games_to_run, dealer_plays(S_17 = FALSE,
-                                                                debug = TRUE)), 
-                       Rule = "Hit on Soft 17"))
+set.seed(39485693)
+outcomes_1 <- data.frame(Outcomes = replicate(games_to_run, 
+                                              dealer_plays(S_17 = FALSE,
+                                                           debug = TRUE)),
+                         Rule = "Hit on Soft 17")
+set.seed(39485693)
+outcomes_2 <- data.frame(Outcomes = replicate(games_to_run, 
+                                              dealer_plays(S_17 = TRUE,
+                                                           debug = TRUE)),
+                         Rule = "Stand on Soft 17")
+dealer_outcomes <- outcomes_1 %>% 
+  bind_rows(outcomes_2)
 
 ggplot(dealer_outcomes, aes(x=Outcomes, color=Rule)) +
   geom_histogram(fill="white", alpha=0.5, position="identity", binwidth = 1)
@@ -93,19 +103,10 @@ tabyl(hit_on_soft, sort = TRUE)
 tabyl(stand_on_soft, sort = TRUE)
 ```
 
-```{r}
 
-results <- play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
-test_1 <- replicate(10000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1))
-test_2 <- replicate(10000, play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1))
-Reduce("+", unlist(test_1, recursive = FALSE)[c(TRUE, FALSE)])
-Reduce("+", unlist(test_2, recursive = FALSE)[c(TRUE, FALSE)])
 
-test_unlisted <- unlist(test, recursive = FALSE)
-table(unlist(unlist(test, recursive = FALSE)[c(TRUE, FALSE)]))
-table(unlist(unlist(test, recursive = FALSE)[c(FALSE, TRUE)]))
 
-```
+
 
 
 
