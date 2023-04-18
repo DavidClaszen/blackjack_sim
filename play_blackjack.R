@@ -53,11 +53,11 @@ hand_value <- function(cards){
 }
 
 # Reporting function just for manual play and testing
-report_dealer <- function(dealer, only_hole = TRUE){
-  if (only_hole){
-    hole_card <- dealer$hand[[1]]
-    print(paste("The hole card is:", hole_card))
-  } else if (!only_hole) {
+report_dealer <- function(dealer, only_face = TRUE){
+  if (only_face){
+    face_card <- dealer$hand[[1]]
+    print(paste("The face card is:", face_card))
+  } else if (!only_face) {
     print(paste("Dealer had", paste(dealer$hand, collapse = ", "), 
                 "with a value of", hand_value(dealer$hand)))
   }
@@ -355,23 +355,23 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
   if (manual) {
 
     for (player in player_list) {
-      # Report hole card
-      report_dealer(dealer, only_hole = TRUE)
-      # Player decides what to do based on hand, visible hole card, or manual
+      # Report face card
+      report_dealer(dealer, only_face = TRUE)
+      # Player decides what to do based on hand, visible face card, or manual
       player_result <- player_logic(player, dealer, initial_bet,
                                     manual = manual, S_17 = S_17, 
                                     got_split = got_split, 
                                     logic_board = logic_board)
       # Report dealer cards if player went bust already
       if (hand_value(player_result$hand) == 0) {
-        report_dealer(dealer, only_hole = FALSE)
+        report_dealer(dealer, only_face = FALSE)
       } else {
         # Dealer plays according to set logic
         # But we can use stand on soft 17 (TRUE) or stand on hard 17 rule (FALSE)
         dealer <- dealer_logic(dealer, S_17 = S_17, manual = manual)
         # Report outcome
         outcome <- game_outcome(hand_value(player_result$hand), hand_value(dealer$hand))
-        report_dealer(dealer, only_hole = FALSE)
+        report_dealer(dealer, only_face = FALSE)
         if (outcome == 1.5) {
           result_txt <- paste("Blackjack! You win", outcome, "times", player_result$bet)
         } else if (outcome == 1) {
@@ -450,7 +450,7 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
 
 
 # Creation of logic boards for hard, soft totals, and splits
-# Columns are hole card values, rows are player totals
+# Columns are face card values, rows are player totals
 # s = stand, h = hit, sp = split
 # d = double if possible else hit, ds = double if possible else stand
 rnames_h <- c(21:3)
@@ -542,12 +542,54 @@ lb_sp2 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
 
 lb_2 <- list(lb_h2, lb_s2, lb_sp2)
 
-# play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb_1)
-#play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
 
+# Logic board to mimic dealer logic with S17, stand on soft 17
+lb_h3 <- matrix(
+  c("s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h"),
+  nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
+
+lb_s3 <- matrix(c("s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h"),
+                nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
+
+lb_sp3 <- matrix(c("h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                   "h", "s", "s", "h", "h", "h", "h", "h", "h", "h"),
+                 nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
+
+lb_3 <- list(lb_h3, lb_s3, lb_sp3)
+
+
+
+# play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb_1)
+# play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
 
 # Alternate deck full of split opportunities
-#deck <- rep(c(9), 52)
-#current_deck <- shuffle_deck(n_decks)
+# deck <- rep(c(9), 52)
+# current_deck <- shuffle_deck(n_decks)
 
 
