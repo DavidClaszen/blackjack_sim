@@ -10,7 +10,7 @@ header-includes:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+source("play_blackjack.R")
 ```
 
 
@@ -23,46 +23,79 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Background
 
-Blackjack is a well-known casino card game with around 2 to 7 players using one or multiple 52 card decks. Each round, the players place an initial bet and are then each dealt 2 cards by the dealer. The dealer deals him/herself two cards as well, the first of which face-up and the second face down (the hole card). The goal is to win money by creating hands of cards with a value higher than the dealer's hand but not exceeding 21, which counts as a loss or bust. Each player gets to decide whether to "hit" and get another card, to "double" their bet and get one final card and finish, to "split" their current hand into two new hands (requiring another bet as well), or to "stand" and finish their turn with their current hand. After the players have finished their hands, the dealer draws until their hand achieves a total of 17 or higher, but never doubles or splits. If the dealer busts, all players that didn't bust, win an amount equal to their bet, but players who already went bust lose anyway. If the player and dealer tie (a "push"), the bet is returned.
+Blackjack is a well-known casino card game with around 2 to 7 players using one or multiple 52 card decks. Each round, the players place an initial bet and are then dealt 2 cards each by the dealer. The dealer deals him/herself two cards as well, the first of which visible, face-up, and the second face down (the hole card). The goal is to win money by creating hands with a value higher than the dealer's hand but not exceeding 21, which would count as a loss or bust. Each player gets to decide whether to "hit" and get another card, to "double" their bet and get one final card and finish, to "split" their current hand into two new hands (requiring another bet as well), or to "stand" and finish their turn with their current hand. After the players have finished their hands, the dealer draws until their hand achieves a total of 17 or higher, but never doubles or splits. If the dealer busts, all players that didn't bust win an amount equal to their bet, but players who already went bust lose even if the dealer busts. If the player and dealer tie (a "push"), the bet is returned. Other possible moves which aren't considered below are the ability to surrender and losing only half your bet, or to buy insurance when the dealer's face-card is an ace.
 
-All cards with a numerical value (2 to 10) are worth as many points as their number. All face cards (kings, queens, etc.) are worth 10 points. An ace can be worth either 1 or 11 points depending on whether counting it as 11 would push the total beyond 21 or not. A natural happens when an initial hand consists of an ace and a face card, totaling 21. If only the player holds a natural, he receives 1.5 times his original bet. If both hold a natural, it is another push and the bet is returned. One mayor rule variation is whether the dealer has to hit or stand on a soft 17. A soft hand is a hand with an ace that can be counted as 11 without the total exceeding 21; that is, if more cards are drawn and the total with an ace of 11 exceeds 21, it can still be counted as a 1 instead. Standing on soft 17 is commonly referred to as S17 and having to hit as H17. 
+All cards with a numerical value (2 to 10) are worth as many points as their number. All face cards (kings, queens, etc.) are worth 10 points. An ace can be worth either 1 or 11 points depending on whether counting it as 11 would push the total beyond 21 or not. A natural happens when an initial hand consists of an ace and a face card, totaling 21. If only the player holds a natural, he receives 1.5 times his original bet. If both the player and dealer hold a natural, it is another push and the bet is returned. One mayor rule variation is whether the dealer has to hit or stand on a soft 17. A soft hand is a hand with an ace that can be counted as 11 without the total exceeding 21; that is, the ace can still be counted as a 1 if further draws push the total beyond 21. The dealer having to stand on soft 17 is commonly referred to as S17 and having to hit as H17. 
 
-Mathematically, there has already been an optimal strategy for blackjack since Baldwin *et al.*'s 1956 paper, "The Optimum Strategy in Blackjack". According to Baldwin *et al.*, this would result in an overall mathematical expectation of -0.006.^[Baldwin, Roger R., Wilbert E. Cantey, Herbert Maisel, and James P. McDermott. “The Optimum Strategy in Blackjack.” *Journal of the American Statistical Association* 51, no. 275 (1956): 429–439: 439.] This strategy, and minor variations on it, have become commonly known as the basic strategy, popularized by Edward O. Thorp's *Beat the Dealer*. Baldwin did not take into account the conditional expectation of a hand given the cards that were already played since the last shuffle, which essentially meant that blackjack hands were not independent of each other. Thorp's improvements of the basic strategy use card counting methods to incorporate this fact. 
-
-
-Practically, it can be memorized, but it is more often printed on three cards showing what to do for each combination of the player's hand value and dealer's face card (one for hard totals, soft totals, and hands which can be split). 
-
-
-Simpler versions often consist of rules build from this basic strategy that are easier to remember. Thorp builds further on top of this basic strategy 
+Mathematically, there has already been an optimal strategy for blackjack since Baldwin *et al.*'s 1956 paper, "The Optimum Strategy in Blackjack". According to Baldwin *et al.*, this would result in an overall mathematical expectation of -0.006.^[Roger R. Baldwin, Wilbert E. Cantey, Herbert Maisel, and James P. McDermott. “The Optimum Strategy in Blackjack.” *Journal of the American Statistical Association* 51, no. 275 (1956): 429–439: 439.] This strategy would later be further improved and popularized as the "basic strategy" by Edward O. Thorp in his *Beat the Dealer*.^[Edward O. Thorp, *Beat the Dealer: a Winning Strategy for the Game of Twenty-One*. New York: Vintage Books, 1966.] Using Fortran and an IBM 704, Thorp simulated blackjack games to figure out which move had the greatest expected value in each situation, concluding with a player advantage of 0.09 using Reno/Tahoe rules. 
 
 
 ## Description of Problem
 
-The main question
-The main question is: are there blackjack strategies that are practical and profitable? 
-A strategy that is profitable but impossible to execute would still not be very helpful. 
-This would seem to put a rather early dent into the question w
+The main problem is to simulate and analyse multiple blackjack strategies and to determine which choice maximizes profit. A secondary concern is practicality. Although Thorp's strategy should, theoretically, allow a player to have an edge in blackjack, the only way to benefit from this would be to utilize it consistently and with a very long time horizon. Assuming that most of us will not end up as professional blackjack players even if we could get an edge, a more practical problem would be to find a strategy that is relatively easy to implement for an evening while keeping the expected loss as minor as possible. 
 
-In increasing order of complexity (or decreasing practicality), the strategies that are tested are as follows. First, we simply mirror the dealer strategy of hitting until the hand reaches a value of 17. The expected value of this strategy is known and simulating this serves as a decent validation to test whether the model performs as it should. We use the dealer variation of having to hit a soft 17 (H17) because this is a more common rule variation in American casino's. Second, we use a strategy that consists of some easy to remember rules. These rules are a simplified version of the third and final strategy that is simulated, namely the basic strategy mentioned earlier.
+In increasing order of complexity (and decreasing convenience), the strategies that are tested are as follows. First, we simply mirror the dealer strategy of hitting until the hand reaches a value of 17. The expected value of this strategy has been mathematically derived and simulating this also serves as a decent validation to test whether the model performs as it should. We use the dealer variation of S17, allowing to stand on a soft 17. Second, we use a strategy that consists of some easy to remember rules. These rules are a simplified version of the third and final strategy that is simulated, namely the basic strategy mentioned earlier.
 
 
 # Code
 
 ## Simulating a Game
 
-In broad strokes, the code does the following. N-number of decks are initialized and shuffled. `play_game` calls on all other required functions so as to simulate one game of blackjack. If the game to be played is fresh and not the result from a split, it deals 2 cards to the dealer, creates as many players as requested, places their initial bets, and deals them 2 cards using `deal_cards` which it takes and deletes from the global deck. Then, each player action is decided on through logical operators and look-up tables in the function `player_logic`. Each strategy consists of a set of three given look-up tables (one for hard totals, one for soft totals, and one for splits), where the recommended action is looked up from rows of player hand values and columns of dealer face card values. `player_actions` executes the taken action: either to stand, hit, double, or split. The resulting hand then goes back to `play_game`. If the player didn't go bust already, `dealer_logic` runs through the fixed rules for a dealer to determine their final hand. Based on that value, and the final player hand, the outcome is determined and returned. In the case of a split, the hand is split into two new hands, and each hand is given an additional card within `player_actions`. Together with the existing dealer hand, these two hands are send back to the `play_game` function to determine their outcome. There is also a manual option to play some games of blackjack against the computer based on your input actions. This wasn't the focus of this project and hasn't been tested thoroughly, but it works well enough.
+The code is available through an R script but also shown in the appendix. This document itself was written in RMarkdown and can be reproduced locally, but just to be sure, the appendix also includes a version which doesn't hide the code chunks. Some inspiration was taken from Hadley Wickham's chapter 9, "Simulating Blackjack", of *Data Science in R*, but his example lacked many options I wished to implement and the code soon diverged greatly.^[Nolan, D. A., & Lang, D. T. (2015). *Data science in R: a case studies approach to computational reasoning and problem solving*, chapter 9.2]
+
+In broad strokes, the code does the following. N-number of decks are initialized and shuffled. If n-decks equals 1 and each game is set to require 52 cards, the deck would be shuffled before each game and the games (not the hands) would be independent. Alternatively, initializing only 1 deck and delaying the shuffle would make games in between each shuffle correlated, more closely approximating a real casino.
+
+The `play_game` function calls on all other required functions so as to simulate one game of blackjack. `play_game` first deals 2 cards to the dealer, creates as many players as requested, places their initial bets, and deals them 2 cards using `deal_cards` which it takes and deletes from the global deck. Then, each player action is decided on through logical operators and look-up tables in the function `player_logic`. Each strategy consists of a set of three look-up tables (one for hard totals, one for soft totals, and one for splits), where the recommended action is looked up from rows of player hand values and columns of dealer face card values. These are also shown in the appendix. `player_actions` executes the taken action: either to stand, hit, double, or split. The resulting hand then goes back to `play_game`. If the player didn't go bust already, `dealer_logic` runs through the fixed rules for a dealer to determine their final hand. Based on that value, and the final player hand, the outcome is determined by `game_outcome` and returned. In the case of a split, the hand is split into two new hands, and each hand is given an additional card within `player_actions`. Together with the existing dealer hand, these two hands are send back to the `play_game` function to determine their outcome. There is also a manual option to play some games of blackjack against the dealer based on your input actions. This wasn't the focus of this project and hasn't been tested thoroughly, but it works well enough.
 
 ## Improvements
 
-Currently, using multiple players works largely as it should, except for when a player splits. The way this is dealt with means that those two split hands go off on their own, play a game with their dealer, record their results, and then the other players continue. This can mean that the dealer will most likely draw different cards to determine the outcome of those split games compared to the games of the other players. This isn't a problem for the simulations below because those will only consider a single player. 
+Currently, using multiple players works largely as it should, except for when a player splits. The way this is dealt with means that those two split hands veer off on their own, play a game with their dealer, record their results, and then the other players continue. This means that the dealer will draw different cards to determine the outcome of those split hands compared to the hands of the other players. This isn't a problem for the simulations below because those will only consider a single player, but a multiplayer variation that builds further on this code needs to be aware of this. 
+
+## Testing and Validation
+
+```{r}
+# Test for hand_value function
+test_cards = list(c(10, 1), c(10, 5, 6), c(10, 1, 1),
+    c(7, 6, 1, 5), c(3, 6, 1, 1),
+    c(2, 3, 4, 10), c(5, 1, 9, 1, 1),
+    c(5, 10, 7), c(10, 9, 1, 1, 1))
+test_cards_val = c(21.5, 21, 12, 19, 21, 19, 17, 0, 0)
+test_1 <- identical(test_cards_val, sapply(test_cards, hand_value))
+
+# Test for game_outcome function
+test_vals = c(0, 16, 19, 20, 21, 21.5)
+testWinnings =
+ matrix(c(
+   -1, 1, 1, 1, 1, 1.5,
+   -1, 0, 1, 1, 1, 1.5,
+   -1, -1, 0, 1, 1, 1.5,
+   -1, -1, -1, 0, 1, 1.5,
+   -1, -1, -1, -1, 0, 1.5,
+   -1, -1, -1, -1, -1, 0),
+   nrow = length(test_vals), byrow = TRUE)
+dimnames(testWinnings) = list(dealer = test_vals,
+      player = test_vals)
+
+check = testWinnings
+check[] = NA
+for(i in seq_along(test_vals)) {
+  for(j in seq_along(test_vals)) {
+ check[i, j] = game_outcome(test_vals[j], test_vals[i])
+ }
+}
+test_2 <- identical(check, testWinnings)
+
+stopifnot(all(test_1, test_2))
+```
+
+
+Two tests were borrowed from Wickham's chapter 9, "Simulating Blackjack" to make sure some minor functions perform properly, namely `hand_value` and `game_outcome`. More interestingly, we can use `dealer_plays` to solely simulate dealer hands and check whether the resulting hands align with our expectations, and whether a rule variation of S17 or H17 shows a difference.
 
 
 
 ## Simulating Many Games
 
-
-R's random number generator uses the Mersenne Twister algorithm. To ensure that the results of the code are reproducible, the function must be given a seed value. Although it is overkill given the period of the Mersenne Twister, each replication of the simulation increments the seed by one to create independent replications. 
-
+R's random number generator uses the Mersenne Twister algorithm. To ensure that the results of the code are reproducible, the function must be given a seed value. 
 
 
 
@@ -75,6 +108,17 @@ R's random number generator uses the Mersenne Twister algorithm. To ensure that 
 
 
 
+
+
+Baldwin did not 
+
+into account the conditional expectation of a hand given the cards that were already played since the last shuffle, which essentially meant that blackjack hands were not independent of each other. Thorp's improvements of the basic strategy use card counting methods to incorporate this fact. 
+
+
+Practically, it can be memorized, but it is more often printed on three cards showing what to do for each combination of the player's hand value and dealer's face card (one for hard totals, soft totals, and hands which can be split). 
+
+
+Simpler versions often consist of rules build from this basic strategy that are easier to remember. Thorp builds further on top of this basic strategy 
 
 
 

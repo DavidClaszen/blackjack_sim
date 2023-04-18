@@ -1,13 +1,16 @@
 # Cleanup 
 # rm(list = ls())
 
-# Create deck
-deck <- rep(c(1:9, 10, 10, 10, 10), 4)
-
 # Function to shuffle decks
 shuffle_deck <- function(n_decks){
+  deck <- rep(c(1:9, 10, 10, 10, 10), 4)
   sample(rep(deck, n_decks))
 }
+
+# Define number of decks, shuffle into live deck
+n_decks <- 1
+current_deck <- shuffle_deck(n_decks)
+
 
 # Reshuffle deck if too small or on command
 reshuffle_check <- function(required_cards = 1, shuffle_now = FALSE){
@@ -17,10 +20,6 @@ reshuffle_check <- function(required_cards = 1, shuffle_now = FALSE){
     assign(x = "current_deck", shuffle_deck(n_decks), envir = globalenv())  
   }
 }
-
-# Define number of decks, shuffle into live deck
-n_decks <- 1
-current_deck <- shuffle_deck(n_decks)
 
 # Place bets by adding to player
 place_bet <- function(player, bet){
@@ -46,7 +45,7 @@ hand_value <- function(cards){
   if (cur_value > 21) {
     return(0)
   }
-  # Return 21.5 for blackjack
+  # Return 21.5 for natural blackjack
   if (cur_value == 21 && length(cards) == 2) { 
     return(21.5) } else
       return(cur_value)
@@ -326,7 +325,8 @@ game_outcome <- function(player, dealer){
 
 play_game <- function(num_players = 1, initial_bet = 1, logic_board,
                       manual = FALSE, S_17 = TRUE, player_list = NULL, 
-                      dealer = NULL, got_split = FALSE, debug = FALSE){
+                      dealer = NULL, got_split = FALSE, debug = FALSE, 
+                      required_cards = 52){
   # Technically, order of cards dealt is different, but shouldn't matter too much
   # For convenience, dealer is dealt first, then players, each 2 cards
   # We'll also assume all players behave and bet the same for now
@@ -335,7 +335,7 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
     # Make sure deck is still large enough, otherwise shuffle
     # Need 11 cards for one player max; four aces, four 2's, three 3's equals 21
     # Add 4 for safety, splits can demand more
-    reshuffle_check(required_cards = 15 * num_players)
+    reshuffle_check(required_cards = required_cards)
     
     # Deal with dealer
     dealer <- vector("list", 1)
@@ -557,16 +557,16 @@ lb_h3 <- matrix(
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h"),
   nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
 
-lb_s3 <- matrix(c("s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h"),
+lb_s3 <- matrix(c("s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "s", "h", "h", "h", "h", "h"),
                 nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
 
 lb_sp3 <- matrix(c("h", "s", "s", "h", "h", "h", "h", "h", "h", "h",

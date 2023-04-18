@@ -16,55 +16,6 @@ library(janitor)
 source("play_blackjack.R")
 ```
 
-# Verification and Testing
-
-The two tests below are borrowed from chapter 9 from *Data Science in R*^[Nolan, D. A., & Lang, D. T. (2015). *Data science in R: a case studies approach to computational reasoning and problem solving*, chapter 9.2]. 
-
-## Hand Value Calculations
-
-Given a set of test data and outcomes, the resulting calculated values should be identical.
-
-```{r}
-test_cards = list(c(10, 1), c(10, 5, 6), c(10, 1, 1),
-    c(7, 6, 1, 5), c(3, 6, 1, 1),
-    c(2, 3, 4, 10), c(5, 1, 9, 1, 1),
-    c(5, 10, 7), c(10, 9, 1, 1, 1))
-test_cards_val = c(21.5, 21, 12, 19, 21, 19, 17, 0, 0)
-
-identical(test_cards_val, sapply(test_cards, hand_value))
-
-```
-
-## Game Outcome Calculations
-
-Given text values for dealer and player hand values, the calculated outcomes should match the expected outcomes.
-
-```{r}
-test_vals = c(0, 16, 19, 20, 21, 21.5)
-testWinnings =
- matrix(c(-1, 1, 1, 1, 1, 1.5,
-   -1, 0, 1, 1, 1, 1.5,
-   -1, -1, 0, 1, 1, 1.5,
-   -1, -1, -1, 0, 1, 1.5,
-   -1, -1, -1, -1, 0, 1.5,
-   -1, -1, -1, -1, -1, 0),
-   nrow = length(test_vals), byrow = TRUE)
-dimnames(testWinnings) = list(dealer = test_vals,
-      player = test_vals)
-testWinnings
-```
-
-```{r}
-check = testWinnings
-check[] = NA
-for(i in seq_along(test_vals)) {
-  for(j in seq_along(test_vals)) {
- check[i, j] = game_outcome(test_vals[j], test_vals[i])
- }
-}
-identical(check, testWinnings)
-```
-
 # Model Validation
 
 ## Dealer Logic - Soft 17 Rules
@@ -75,13 +26,13 @@ In blackjack, the dealer must draw cards until their hand achieves a total value
 
 
 ```{r}
-games_to_run <- 300000
-set.seed(39485693)
+games_to_run <- 500000
+set.seed(39486)
 outcomes_1 <- data.frame(Outcomes = replicate(games_to_run, 
                                               dealer_plays(S_17 = FALSE,
                                                            debug = TRUE)),
                          Rule = "Hit on Soft 17")
-set.seed(39485693)
+set.seed(39486)
 outcomes_2 <- data.frame(Outcomes = replicate(games_to_run, 
                                               dealer_plays(S_17 = TRUE,
                                                            debug = TRUE)),
@@ -130,120 +81,6 @@ unlist(unlist(test_1, recursive = TRUE)[c(TRUE, FALSE)])
 
 
 ```{r}
-
-replicate_games <- function(r_runs,
-                            m_replications,
-                            S_17,
-                            logic_board,
-                            seed){
-  
-  
-  simulation_results <- data.frame()
-  for (i in 1:r_runs) {
-    seed <- seed + i
-    set.seed((seed))
-    run_results <- replicate(m_replications,
-                               play_game(num_players = 1,
-                                         initial_bet = 1,
-                                         manual = FALSE,
-                                         S_17 = S_17,
-                                         logic_board = logic_board))
-    run_df <- data.frame(
-        game_outcomes = unlist(unlist(run_results, recursive = TRUE)[c(TRUE, FALSE)]),
-        bets = unlist(unlist(run_results, recursive = TRUE)[c(FALSE, TRUE)]),
-        run_num = i)
-    
-    simulation_results <- simulation_results %>% 
-      bind_rows(run_df)
-  }
-  return(simulation_results)
-}
-
-
-get_sample_means <- function(df) {
-  df %>% 
-    mutate(net_result = game_outcomes * bets) %>% 
-    group_by(run_num) %>% 
-    summarise(outcome_means = mean(game_outcomes),
-              bet_means = mean(bets),
-              net_result_means = mean(net_result))
-}
-
-get_grand_sample_mean <- function(df) {
-  df %>% 
-    ungroup() %>% 
-    summarise(outcome_mean = mean(outcome_means),
-              bet_mean = mean(bet_means),
-              net_result_mean = mean(net_result_means))
-}
-
-
-get_sample_variance <- function(df) {
-  df %>% 
-    mutate(across(contains("means"), ~ (. - mean(.))^2)) %>% 
-    summarise(across(contains("means"), ~ sum(.) / (n() - 1))) %>% 
-    rename_with(~ gsub("means", "variance", .), contains("means"))
-}
-
-
-get_conf_interval <- function(z_bar, sample_var, r_runs, alpha) {
-  t_value <- qt(1 - (alpha / 2), r_runs - 1)
-  lower_bound <- z_bar - t_value * sqrt(sample_var / r_runs)
-  upper_bound <- z_bar + t_value * sqrt(sample_var / r_runs)
-  return(c(lower_bound, upper_bound))
-}
-
-
-get_all_cis <- function(z_bars, sample_vars, r_runs, alpha) {
-  ci_df <- data.frame()
-  
-  for (i in seq_along(z_bars)) {
-    ci <- get_conf_interval(z_bar = z_bars[[i]], 
-                      sample_var = sample_vars[[i]], 
-                      r_runs = r_runs, 
-                      alpha = alpha)
-    ci_df[1, i] <- ci[1]
-    ci_df[2, i] <- ci[2]
-  }
-  colnames(ci_df) <- c("outcome", "bet", "net_result")
-  add_means <- z_bars
-  colnames(add_means) <- c("outcome", "bet", "net_result")
-  ci_df <- ci_df %>%
-    bind_rows(add_means)
-  rownames(ci_df) <- c("lower", "upper", "mean")
-  ci_df <- ci_df[order(row.names(ci_df)), ]
-  return(ci_df)
-}
-
-
-
-df <- replicate_games(r_runs = 1000,
-                      m_replications = 200,
-                      S_17 = TRUE,
-                      logic_board = lb_3,
-                      seed = 3489)
-
-
-
-
-s_means <- get_sample_means(df)
-z_bars <- get_grand_sample_mean(get_sample_means(df))
-sample_vars <- get_sample_variance(get_sample_means(df))
-get_all_cis(z_bars = z_bars, sample_vars = sample_vars, r_runs = 1000, alpha = 0.01)
-
-
-ggplot(s_means, aes(x=outcome_means)) +
-  geom_histogram(fill="white", color = "black", alpha=0.5, position="identity", binwidth = 0.01)+
-  geom_density()
-
-
-
-
-
-
-
-
-
 batch_games <- function(b_batches,
                         m_obs,
                         S_17,
@@ -332,8 +169,8 @@ b_batches <- 30
 df <- batch_games(b_batches = b_batches,
                   m_obs = m_obs,
                   S_17 = TRUE,
-                  logic_board = lb_3,
-                  seed = 3489)
+                  logic_board = lb_1,
+                  seed = 12345625)
 
 batch_means <- get_batch_means(df)
 vb_hats <- get_batch_variance(batch_means, m_obs = m_obs)
