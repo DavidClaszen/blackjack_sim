@@ -25,33 +25,13 @@ A soft hand is a hand containing an ace that can still be either a 1 or an 11. A
 In blackjack, the dealer must draw cards until their hand achieves a total value of 17 or more. A common rule variation is whether the dealer must hit on a soft 17 (H17) or whether they can stand (S17). Having to hit on a soft 17 should result in fewer 17's, more values above 17, and more busts where the code counts the value as 0. The differences after 300.000 games for each variation are shown below, with each series of runs starting from the same seed. This will take about half a minute to run.
 
 
-```{r}
-games_to_run <- 500000
-set.seed(39486)
-outcomes_1 <- data.frame(Outcomes = replicate(games_to_run, 
-                                              dealer_plays(S_17 = FALSE,
-                                                           debug = TRUE)),
-                         Rule = "Hit on Soft 17")
-set.seed(39486)
-outcomes_2 <- data.frame(Outcomes = replicate(games_to_run, 
-                                              dealer_plays(S_17 = TRUE,
-                                                           debug = TRUE)),
-                         Rule = "Stand on Soft 17")
-dealer_outcomes <- outcomes_1 %>% 
-  bind_rows(outcomes_2)
 
-ggplot(dealer_outcomes, aes(x=Outcomes, color=Rule)) +
-  geom_histogram(fill="white", alpha=0.5, position="identity", binwidth = 1)
-```
 
 ```{r}
-hit_on_soft <- dealer_outcomes[(dealer_outcomes$Rule == "Hit on Soft 17"), ]$Outcomes
-stand_on_soft <- dealer_outcomes[dealer_outcomes$Rule == "Stand on Soft 17", ]$Outcomes
 
-tabyl(hit_on_soft, sort = TRUE)
 ```
 ```{r}
-tabyl(stand_on_soft, sort = TRUE)
+
 ```
 
 
@@ -94,13 +74,9 @@ batch_games <- function(b_batches,
                                   manual = FALSE,
                                   S_17 = S_17,
                                   logic_board = logic_board))
-  # n_rows won't entirely match m_obs * b_batches because of split games
-  # not quite perfect, but we'll only keep what we need
-  # else it's difficult to get equal sized batches
   long_run <- data.frame(
     game_outcomes = unlist(unlist(long_run, recursive = TRUE)[c(TRUE, FALSE)]),
     bets = unlist(unlist(long_run, recursive = TRUE)[c(FALSE, TRUE)])) %>%
-    head(b_batches * m_obs) %>% 
     mutate(net = game_outcomes * bets)
   long_run$batch_num <- cut(seq(nrow(long_run)), b_batches, labels = FALSE)
   

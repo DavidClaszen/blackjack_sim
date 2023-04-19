@@ -9,14 +9,20 @@ header-includes:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# Whenever a code chunk takes a while to run because of a simulation,
+# I have included an estimated run time. These are from my relatively rubbish laptop
+# As long as you're not using a potato, this should run faster
+
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(tidyverse)
+library(janitor)
+library(kableExtra)
 source("play_blackjack.R")
 ```
 
 
 # Abstract
-
-
 
 
 # Background and Description of Problem
@@ -41,17 +47,20 @@ In increasing order of complexity (and decreasing convenience), the strategies t
 
 ## Simulating a Game
 
-The code is available through an R script but also shown in the appendix. This document itself was written in RMarkdown and can be reproduced locally, but just to be sure, the appendix also includes a version which doesn't hide the code chunks. Some inspiration was taken from Hadley Wickham's chapter 9, "Simulating Blackjack", of *Data Science in R*, but his example lacked many options I wished to implement and the code soon diverged greatly.^[Nolan, D. A., & Lang, D. T. (2015). *Data science in R: a case studies approach to computational reasoning and problem solving*, chapter 9.2]
+The code is available through an R script but also shown in the appendix. This document itself was written in RMarkdown and can be reproduced locally, but just to be sure the appendix also includes a version which doesn't hide the code chunks. Some inspiration was taken from Hadley Wickham's chapter 9, "Simulating Blackjack", of *Data Science in R*, but his examples lacked many options I wished to implement and the code soon diverged.^[Deborah Ann Nolan and David Temple Lang, *Data Science in R: a Case Studies Approach to Computational Reasoning and Problem Solving*. 1st edition. Boca Raton: CRC Press, 2015, chapter 9]
 
-In broad strokes, the code does the following. N-number of decks are initialized and shuffled. If n-decks equals 1 and each game is set to require 52 cards, the deck would be shuffled before each game and the games (not the hands) would be independent. Alternatively, initializing only 1 deck and delaying the shuffle would make games in between each shuffle correlated, more closely approximating a real casino.
+In broad strokes, the code does the following. `shuffle_deck` creates n-decks, shuffles them, and stores the result in the global environment. If n-decks equals 1 and each game is set to require 52 cards, the deck would be shuffled before each game and the games (not the hands) would be independent. Alternatively, initializing only 1 deck and delaying the shuffle would make games in between each shuffle correlated, more closely approximating a casino.
 
-The `play_game` function calls on all other required functions so as to simulate one game of blackjack. `play_game` first deals 2 cards to the dealer, creates as many players as requested, places their initial bets, and deals them 2 cards using `deal_cards` which it takes and deletes from the global deck. Then, each player action is decided on through logical operators and look-up tables in the function `player_logic`. Each strategy consists of a set of three look-up tables (one for hard totals, one for soft totals, and one for splits), where the recommended action is looked up from rows of player hand values and columns of dealer face card values. These are also shown in the appendix. `player_actions` executes the taken action: either to stand, hit, double, or split. The resulting hand then goes back to `play_game`. If the player didn't go bust already, `dealer_logic` runs through the fixed rules for a dealer to determine their final hand. Based on that value, and the final player hand, the outcome is determined by `game_outcome` and returned. In the case of a split, the hand is split into two new hands, and each hand is given an additional card within `player_actions`. Together with the existing dealer hand, these two hands are send back to the `play_game` function to determine their outcome. There is also a manual option to play some games of blackjack against the dealer based on your input actions. This wasn't the focus of this project and hasn't been tested thoroughly, but it works well enough.
+The `play_game` function calls on all other required functions so as to simulate one game of blackjack. `play_game` first deals 2 cards to the dealer, creates as many players as requested, places their initial bets, and deals them 2 cards using `deal_cards` which it takes and deletes from the global deck. Then, each player action is decided on through logical operators and look-up tables in the function `player_logic`. Each strategy consists of a set of three look-up tables (one for hard totals, one for soft totals, and one for splits), where the recommended action is looked up from rows of player hand values and columns of dealer face card values. These are also shown in the appendix. `player_actions` executes the taken action: either to stand, hit, double, or split. The resulting hand then goes back to `play_game`. 
+
+If the player didn't go bust already, `dealer_logic` runs through the fixed rules for a dealer to determine their final hand. Based on that value, and the final player hand, the outcome is determined by `game_outcome` and returned. To distinguish it from a normal 21, a natural blackjack counts as 21.5. The initial bet is always 1. 
+
+In the case of a split, the hand is split into two new hands, and each hand is given an additional card within `player_actions`. Together with the existing dealer hand, these two hands are send back to the `play_game` function to determine their outcome, and then averaged as the result for that game. There is also a manual option to play some games of blackjack against the dealer based on your input actions. This wasn't the focus of this project and hasn't been tested thoroughly, but it works well enough.
 
 ## Improvements
 
-Currently, using multiple players works largely as it should, except for when a player splits. The way this is dealt with means that those two split hands veer off on their own, play a game with their dealer, record their results, and then the other players continue. This means that the dealer will draw different cards to determine the outcome of those split hands compared to the hands of the other players. This isn't a problem for the simulations below because those will only consider a single player, but a multiplayer variation that builds further on this code needs to be aware of this. 
+Currently, using multiple players works largely as it should, except for when a player splits. The way this is dealt with means that those two split hands veer off on their own, play a game with their dealer, report their average result, and then the other players continue. This means that the dealer will draw different cards to determine the outcome of those split hands compared to the hands of the other players. This isn't a problem for the simulations below because those will only consider a single player, but a multiplayer extension of this code needs to be aware of this. 
 
-## Testing and Validation
 
 ```{r}
 # Test for hand_value function
@@ -89,19 +98,173 @@ stopifnot(all(test_1, test_2))
 ```
 
 
-Two tests were borrowed from Wickham's chapter 9, "Simulating Blackjack" to make sure some minor functions perform properly, namely `hand_value` and `game_outcome`. More interestingly, we can use `dealer_plays` to solely simulate dealer hands and check whether the resulting hands align with our expectations, and whether a rule variation of S17 or H17 shows a difference.
+## Testing and Validation
+
+Two tests were borrowed from chapter 9 of *Data Science in R* to make sure some minor functions perform properly, namely `hand_value` and `game_outcome`.^[Nolan and Lang, *Data Science in R*, chapter 9.2] Other tests involved checking the output for impossible values, such as dealer hands that didn't go bust but were below 17. 
+
+We can use the `dealer_plays` function to solely simulate dealer hands. This allows to validate whether the resulting hands align with our expectations, and whether a rule variation of S17 or H17 shows a difference. Thorp includes a table for the dealer probabilities when standing on a soft 17, the percentages of which are reproduced below as well.^[Thorp, *Beat the Dealer*, 189. These are the results of Thorp's own simulations.] 
+
+```{r}
+# Estimated time to run: 50 seconds
+# Indep option makes sure dealer draws from a fresh deck each time
+games_to_run <- 300000
+set.seed(39486)
+outcomes_1 <- data.frame(Outcomes = replicate(games_to_run, 
+                                              dealer_plays(S_17 = FALSE,
+                                                           indep = TRUE)),
+                         Rule = "Hit on Soft 17")
+set.seed(39486)
+outcomes_2 <- data.frame(Outcomes = replicate(games_to_run, 
+                                              dealer_plays(S_17 = TRUE,
+                                                           indep = TRUE)),
+                         Rule = "Stand on Soft 17")
+dealer_outcomes <- outcomes_1 %>% 
+  bind_rows(outcomes_2)
+
+```
+
+```{r}
+hit_on_soft <- dealer_outcomes[(dealer_outcomes$Rule == "Hit on Soft 17"), ]$Outcomes
+stand_on_soft <- dealer_outcomes[dealer_outcomes$Rule == "Stand on Soft 17", ]$Outcomes
+
+table1 <- tabyl(hit_on_soft, sort = TRUE) %>% 
+  rename("Hit on Soft 17" = hit_on_soft)
+table2 <- tabyl(stand_on_soft, sort = TRUE) %>% 
+  rename("Stand on Soft 17" = stand_on_soft)
+
+table3 <- data.frame(Thorp = c(0, 17.0, 18.0, 19.0, 20.0, 21.0, 21.5),
+                       percent = c(0.2836, 0.1458, 0.1381, 0.1348, 0.1758, 0.0736, 0.0483))
+
+kable(list(table1, table2, table3),
+      caption = 'Dealer Hand Values (n=300,000)',
+      booktabs = TRUE,
+      valign = 't', 
+      linesep = "") %>% 
+  kable_paper() %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+
+```{r}
+chi_test_stat <- table2 %>% 
+  left_join(table3, by = c("Stand on Soft 17" = "Thorp")) %>% 
+  mutate(percent.y = percent.y * games_to_run) %>% 
+  mutate(diff = (n - percent.y) / percent.y) %>% 
+  summarise(test_stat = sum(diff)) %>% 
+  pull(test_stat)
+
+crit_val <- qchisq((1 - 0.01), (7 - 1 - 1), lower.tail=TRUE)
+
+stopifnot(chi_test_stat < crit_val)
+```
+
+Running `r format(games_to_run, scientific=FALSE)` dealer hands, the outcomes are shown above. Using Thorp's figures as expected values for stand on 17, we can perform a chi-squared goodness of fit test. The resulting test statistic is tiny (`r chi_test_stat`), and considering the critical value of `r round(crit_val, 4)`, we fail to reject $H_0$ for our simulation results being different from Thorp's.
+
+\vspace{12pt}
+
+```{r, fig.height=4}
+ggplot(dealer_outcomes, aes(x=Outcomes, color=Rule)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity", binwidth = 1) +
+  xlab("Dealer Hand Values") +
+  ggtitle("Histogram of Dealer Hands for S17 and H17 Rules (n=300,000)") +
+  theme_minimal()
+```
+
+\vspace{12pt}
+
+While there is a clear difference between the S17 and H17 variations, it is too small to reach a conclusion based on these values. But they do behave as expected, with a decrease in hand totals of 17 when hitting on a soft 17, more hands going bust, and a slight increase for all values above 17. 
+
+
+## Strategy Simulations
+
+The simulations below were performed to produce independent replications. To make sure that each game is independent, the deck is reshuffled before each new game. This means that the player and dealer hands within a game are not independent, but the games themselves are. The first replication of m observations begins with a given seed value to create a reproducible output, and each subsequent replication adds 1 to this seed to make sure that the replications themselves are independent. This is most likely redundant, given that the games themselves are independent and R uses the Mersenne Twister algorithm for whenever a new deck is sampled (shuffled), but it also comes at little extra computational cost. 
+
+The output consists of 2 values for each game: the outcome and the bet. The outcome is either -1 for a lost game, 0 for a tie, 1 for a win, or 1.5 for a win with a natural 21. The bet values are either 1 for the initial bet, 2 for a double, and very occasionally 1.5 for when a hand was split and the resulting hands produced a normal bet of 1 and 2 for a double. The net results for each game are simply the game outcome values multiplied by the bet values. The mean of these net results are the expected value for a strategy per initial bet of 1 currency unit. 
+
+All strategies were simulated with 100 runs and 5000 observations per run, for a total of 500,000 observations per strategy. At an alpha of 0.01, this produces fairly small confidence intervals while keeping simulation run times reasonable. Other configurations were tested but increasing observations or replications further only marginally decreased the confidence intervals compared to the chosen settings.^[With a few million observations these tests took rather long to run and were left out of this paper.]
+
+
+```{r}
+# Each simulation took me around 2 minutes to run
+# There are three simulations below
+# So if you run this chunk, expect to wait roughly 6 minutes
+
+r_runs <- 100
+m_obs <- 5000
+alpha <- 0.01
+  
+df_1 <- run_ir_games(r_runs = r_runs,
+                   m_obs = m_obs,
+                   S_17 = TRUE,
+                   logic_board = lb_1,
+                   seed = 3489, 
+                   required_cards = 52)
+  
+s_means_1 <- get_ir_sample_means(df_1)
+z_bars_1 <- get_ir_grand_sample_mean(get_ir_sample_means(df_1))
+sample_vars_1 <- get_ir_sample_variance(get_ir_sample_means(df_1))
+cis_1 <- get_ir_cis_full(z_bars = z_bars_1,
+                       sample_vars = sample_vars_1,
+                       r_runs = r_runs,
+                       alpha = alpha)
+
+df_2 <- run_ir_games(r_runs = r_runs,
+                   m_obs = m_obs,
+                   S_17 = TRUE,
+                   logic_board = lb_2,
+                   seed = 3489, 
+                   required_cards = 52)
+  
+s_means_2 <- get_ir_sample_means(df_2)
+z_bars_2 <- get_ir_grand_sample_mean(get_ir_sample_means(df_2))
+sample_vars_2 <- get_ir_sample_variance(get_ir_sample_means(df_2))
+cis_2 <- get_ir_cis_full(z_bars = z_bars_2,
+                       sample_vars = sample_vars_2,
+                       r_runs = r_runs,
+                       alpha = alpha)
+
+df_3 <- run_ir_games(r_runs = r_runs,
+                   m_obs = m_obs,
+                   S_17 = TRUE,
+                   logic_board = lb_3,
+                   seed = 3489, 
+                   required_cards = 52)
+  
+s_means_3 <- get_ir_sample_means(df_3)
+z_bars_3 <- get_ir_grand_sample_mean(get_ir_sample_means(df_3))
+sample_vars_3 <- get_ir_sample_variance(get_ir_sample_means(df_3))
+cis_3 <- get_ir_cis_full(z_bars = z_bars_3,
+                       sample_vars = sample_vars_3,
+                       r_runs = r_runs,
+                       alpha = alpha)
+
+kable(list(cis_2, 
+           cis_1 %>% 
+             remove_rownames(),
+           cis_3),
+      caption = 'Strategies: Simplified Basic Strategy, Basic Strategy, Mimic Dealer (bottom)',
+      booktabs = TRUE,
+      valign = 't', 
+      linesep = "") %>% 
+  kable_paper() %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
 
 
 
-## Simulating Many Games
-
-R's random number generator uses the Mersenne Twister algorithm. To ensure that the results of the code are reproducible, the function must be given a seed value. 
 
 
 
 
+```{r}
 
-
+iterations <- 500000
+flip_results <- df_1$net
+pct_head <- pct_head <- cumsum(flip_results) / seq_len(iterations)
+ggplot(mapping = aes(x=1:iterations,y=pct_head))+geom_line(linewidth=0.2) +
+  ylim(-0.02 , 0.02) +
+  theme_bw()
+```
 
 
 

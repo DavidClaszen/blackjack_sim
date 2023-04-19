@@ -3,6 +3,8 @@
 
 # Function to shuffle decks
 shuffle_deck <- function(n_decks){
+  # Alternate deck full of split opportunities
+  # deck <- rep(c(9), 52)
   deck <- rep(c(1:9, 10, 10, 10, 10), 4)
   sample(rep(deck, n_decks))
 }
@@ -21,10 +23,12 @@ reshuffle_check <- function(required_cards = 1, shuffle_now = FALSE){
   }
 }
 
+
 # Place bets by adding to player
 place_bet <- function(player, bet){
   return(player$bet + bet)
 }
+
 
 # Draw cards from current_deck
 deal_cards <- function(n_cards = 2){
@@ -34,6 +38,7 @@ deal_cards <- function(n_cards = 2){
   assign(x = "current_deck", deck_copy[-indices], envir = globalenv())
   return(deck_copy[indices])
 }
+
 
 hand_value <- function(cards){
   cur_value <- sum(cards)
@@ -51,6 +56,7 @@ hand_value <- function(cards){
       return(cur_value)
 }
 
+
 # Reporting function just for manual play and testing
 report_dealer <- function(dealer, only_face = TRUE){
   if (only_face){
@@ -62,8 +68,9 @@ report_dealer <- function(dealer, only_face = TRUE){
   }
 }
 
+
 # Default for dealer
-dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, debug = FALSE){
+dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, indep = FALSE){
   current_hand <- dealer$hand
   # Keep checking while at or below 17 but not bust
   while (hand_value(current_hand) <= 17 && hand_value(current_hand) != 0) {
@@ -72,8 +79,7 @@ dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, debug = FALSE){
     is_hard <- ((sum(current_hand) + 10) > 21)
     
     # Make sure there's still cards in deck before drawing if debugging
-    # Maximally need 5 additional cards
-    if (debug) { reshuffle_check(required_cards = 5) }
+    if (indep) { reshuffle_check(required_cards = 52) }
     # If below 17, hit
     if (hand_value(current_hand) < 17) {
       current_hand <- c(current_hand, deal_cards(n_cards = 1))
@@ -100,15 +106,14 @@ dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, debug = FALSE){
 
 
 # Used for testing of dealer logic
-dealer_plays <- function(S_17 = TRUE, debug = TRUE) {
+dealer_plays <- function(S_17 = TRUE, indep = TRUE) {
   reshuffle_check(required_cards = 10)
   dealer <- vector("list", 1)
   names(dealer) <- c("hand")
   dealer$hand <- deal_cards(n_cards = 2)
-  dealer <- dealer_logic(dealer, S_17 = S_17, debug = debug)
+  dealer <- dealer_logic(dealer, S_17 = S_17, indep = indep)
   return(hand_value(dealer$hand))
 }
-
 
 
 player_logic <- function(player, dealer, initial_bet, manual, 
@@ -322,6 +327,14 @@ game_outcome <- function(player, dealer){
 }
 
 
+# Helper function to get average of split games
+get_result_average <- function(x) {
+  list(
+    mean(x[c(1, 3)]),
+    mean(x[c(2, 4)])
+  )
+}
+
 
 play_game <- function(num_players = 1, initial_bet = 1, logic_board,
                       manual = FALSE, S_17 = TRUE, player_list = NULL, 
@@ -333,8 +346,9 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
   # If game doesn't come from a split game, create new hands, else use existing
   if (!got_split & is.null(player_list)) {
     # Make sure deck is still large enough, otherwise shuffle
+    # Default is 52 to shuffle between each game, but to keep using the same:
     # Need 11 cards for one player max; four aces, four 2's, three 3's equals 21
-    # Add 4 for safety, splits can demand more
+    # Add 4 for safety, splits can demand more = 15 minimum
     reshuffle_check(required_cards = required_cards)
     
     # Deal with dealer
@@ -410,9 +424,11 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
 
     # If a previous run was for two splits, player_logic returns a list of their results
     # Doesn't contain attributes, so in that case, return results
+    # But these are now two hands, two highly correlated games, 
+    # so we need the average to get the real outcome for the entire game
     if (!("names" %in% names(attributes(player_results[[1]])))) {
       if (debug) {print("No attributes detected, returning results at play_game location 012") }
-      return(player_results)
+      return(get_result_average(unlist(player_results)))
     }        
         
     # Check whether all players went bust, in that case dealer doesn't need to draw
@@ -446,7 +462,6 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
     return(game_results)
   }
 }
-
 
 
 # Creation of logic boards for hard, soft totals, and splits
@@ -584,12 +599,189 @@ lb_sp3 <- matrix(c("h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
 lb_3 <- list(lb_h3, lb_s3, lb_sp3)
 
 
+# Independent replications method below
+# Only use this if your games actually are independent, reshuffle each game
+
+run_ir_games <- function(r_runs,
+                         m_obs,
+                         S_17,
+                         logic_board,
+                         seed, 
+                         required_cards){
+  
+  simulation_results <- data.frame()
+  # Technically, each game is independent, thus each replication is independent
+  # Thus no need to re-initialize each rep with different seed
+  # The Mersenne Twister algo in R will take care of that, but, just to be sure
+  for (i in 1:r_runs) {
+    seed <- seed + i
+    set.seed((seed))
+    run_results <- replicate(m_obs,
+                             play_game(num_players = 1,
+                                       initial_bet = 1,
+                                       manual = FALSE,
+                                       S_17 = S_17,
+                                       logic_board = logic_board, 
+                                       required_cards = required_cards))
+    run_df <- data.frame(
+      game_outcomes = unlist(unlist(run_results, recursive = TRUE)[c(TRUE, FALSE)]),
+      bets = unlist(unlist(run_results, recursive = TRUE)[c(FALSE, TRUE)]),
+      run_num = i)
+    
+    simulation_results <- simulation_results %>% 
+      bind_rows(run_df)
+  }
+  
+  simulation_results <- simulation_results %>%
+    mutate(net = game_outcomes * bets)
+  
+  
+  return(simulation_results)
+}
+
+
+get_ir_sample_means <- function(df) {
+  df %>% 
+    group_by(run_num) %>% 
+    summarise(outcome_means = mean(game_outcomes),
+              bet_means = mean(bets),
+              net_means = mean(net))
+}
+
+get_ir_grand_sample_mean <- function(df) {
+  df %>% 
+    ungroup() %>% 
+    summarise(outcome_mean = mean(outcome_means),
+              bet_mean = mean(bet_means),
+              net_mean = mean(net_means))
+}
+
+
+get_ir_sample_variance <- function(df) {
+  df %>% 
+    mutate(across(contains("means"), ~ (. - mean(.))^2)) %>% 
+    summarise(across(contains("means"), ~ sum(.) / (n() - 1))) %>% 
+    rename_with(~ gsub("means", "variance", .), contains("means"))
+}
+
+
+get_ir_ci <- function(z_bar, sample_var, r_runs, alpha) {
+  t_value <- qt(1 - (alpha / 2), r_runs - 1)
+  lower_bound <- z_bar - t_value * sqrt(sample_var / r_runs)
+  upper_bound <- z_bar + t_value * sqrt(sample_var / r_runs)
+  return(c(lower_bound, upper_bound))
+}
+
+
+get_ir_cis_full <- function(z_bars, sample_vars, r_runs, alpha) {
+  ci_df <- data.frame()
+  
+  for (i in seq_along(z_bars)) {
+    ci <- get_ir_ci(z_bar = z_bars[[i]],
+                    sample_var = sample_vars[[i]],
+                    r_runs = r_runs,
+                    alpha = alpha)
+    ci_df[1, i] <- ci[1]
+    ci_df[2, i] <- ci[2]
+  }
+  colnames(ci_df) <- c("outcome", "bet", "net")
+  add_means <- z_bars
+  colnames(add_means) <- c("outcome", "bet", "net")
+  ci_df <- ci_df %>%
+    bind_rows(add_means)
+  rownames(ci_df) <- c("lower", "upper", "mean")
+  ci_df <- ci_df[order(row.names(ci_df)), ]
+  ci_df <- ci_df %>% 
+    rename("Game Outcome" = outcome,
+           "Bet" = bet,
+           "Net Result" = net)
+  return(ci_df)
+}
+
+
+# Batch means method below
+
+batch_games <- function(b_batches,
+                        m_obs,
+                        S_17,
+                        logic_board,
+                        seed){
+  
+  set.seed((seed))
+  long_run <- replicate(m_obs * b_batches,
+                        play_game(num_players = 1,
+                                  initial_bet = 1,
+                                  manual = FALSE,
+                                  S_17 = S_17,
+                                  logic_board = logic_board))
+  long_run <- data.frame(
+    game_outcomes = unlist(unlist(long_run, recursive = TRUE)[c(TRUE, FALSE)]),
+    bets = unlist(unlist(long_run, recursive = TRUE)[c(FALSE, TRUE)])) %>%
+    mutate(net = game_outcomes * bets)
+  long_run$batch_num <- cut(seq(nrow(long_run)), b_batches, labels = FALSE)
+  
+  return(long_run)
+}
+
+
+get_batch_means <- function(df) {
+  df %>% 
+    group_by(batch_num) %>% 
+    summarise(outcome_means = mean(game_outcomes),
+              bet_means = mean(bets),
+              net_means = mean(net))
+}
+
+
+get_batch_variance <- function(df, m_obs) {
+  df %>% 
+    mutate(across(contains("means"), ~ (. - mean(.)) ^2)) %>% 
+    summarise(across(contains("means"), ~ sum(.) * m_obs / (n() - 1) )) %>% 
+    rename_with(~ gsub("means", "variance", .), contains("means"))
+}
+
+
+get_batch_conf_interval <- function(yn_bar, vb_hat, n, alpha) {
+  t_value <- qt(1 - (alpha / 2), b_batches - 1)
+  lower_bound <- yn_bar - t_value * sqrt(vb_hat / n)
+  upper_bound <- yn_bar + t_value * sqrt(vb_hat / n)
+  return(c(lower_bound, upper_bound))
+}
+
+
+get_yn_bar <- function(df) {
+  df %>% 
+    ungroup() %>% 
+    summarise(outcome_mean = mean(outcome_means),
+              bet_mean = mean(bet_means),
+              net_mean = mean(net_means))
+}
+
+get_all_batch_cis <- function(yn_bars, vb_hats, n, alpha) {
+  ci_df <- data.frame()
+  
+  for (i in seq_along(yn_bars)) {
+    ci <- get_batch_conf_interval(yn_bar = yn_bars[[i]], 
+                                  vb_hat = vb_hats[[i]], 
+                                  n = n, 
+                                  alpha = alpha)
+    ci_df[1, i] <- ci[1]
+    ci_df[2, i] <- ci[2]
+  }
+  colnames(ci_df) <- c("outcome", "bet", "net")
+  add_means <- yn_bars
+  colnames(add_means) <- c("outcome", "bet", "net")
+  ci_df <- ci_df %>%
+    bind_rows(add_means)
+  rownames(ci_df) <- c("lower", "upper", "mean")
+  ci_df <- ci_df[order(row.names(ci_df)), ]
+  return(ci_df)
+}
+
 
 # play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb_1)
 # play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
 
-# Alternate deck full of split opportunities
-# deck <- rep(c(9), 52)
 # current_deck <- shuffle_deck(n_decks)
 
 
