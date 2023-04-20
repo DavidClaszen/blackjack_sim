@@ -3,11 +3,12 @@
 
 # Function to shuffle decks
 shuffle_deck <- function(n_decks){
-  # Alternate deck full of split opportunities
+  # Alternate deck full of split opportunities for some tests
   # deck <- rep(c(9), 52)
   deck <- rep(c(1:9, 10, 10, 10, 10), 4)
   sample(rep(deck, n_decks))
 }
+
 
 # Define number of decks, shuffle into live deck
 n_decks <- 1
@@ -468,16 +469,60 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
 # Columns are face card values, rows are player totals
 # s = stand, h = hit, sp = split
 # d = double if possible else hit, ds = double if possible else stand
+# Not the most...user friendly, constructed on column by column basis
 rnames_h <- c(21:3)
 rnames_s <- c(21:12)
 rnames_sp <- c("1, 1", "10, 10", "9, 9", "8, 8", "7, 7", 
                "6, 6", "5, 5", "4, 4", "3, 3", "2, 2")
 cnames <- c(2:10, 1)
 
-# Common strategy widely available online
-# Such as https://www.blackjackapprenticeship.com/blackjack-strategy-charts/
+# Baldwin's optimum strategy from 1956, expected value should be -0.0062
 lb_h1 <- matrix(
   c("s", "s", "s", "s", "s", "s", "s", "s", "s", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "h", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "d", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "h", "h", "h", "h", "h", "h", "h", "h",
+    "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h"),
+  nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
+
+lb_s1 <- matrix(c("s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "d", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "ds", "d", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "ds", "d", "d", "d", "d", "d", "d",
+                  "s", "s", "s", "ds", "d", "d", "d", "d", "d", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h"),
+                nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
+
+lb_sp1 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "sp", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "s", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "h", "d", "h", "h", "h",
+                   "sp", "s", "sp", "sp", "h", "h", "d", "h", "h", "h",
+                   "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h",
+                   "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h"),
+                 nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
+
+lb_1 <- list(lb_h1, lb_s1, lb_sp1)
+
+
+# Thorp's Beat the Dealer, expected value should be + 0.1
+# Small refinements from the basic strategy weren't implemented
+# These can't be executed following a simple matrix like below
+# For example, whether a player hand holds 2 or 3 cards
+lb_h2 <- matrix(
+  c("s", "s", "s", "s", "s", "s", "s", "s", "s", "h", "d", "d", "d", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "h", "d", "d", "d", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
@@ -489,36 +534,36 @@ lb_h1 <- matrix(
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "d", "h", "h", "h", "h", "h", "h", "h", "h"),
   nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
 
-lb_s1 <- matrix(c("s", "s", "s", "ds", "h", "h", "h", "h", "h", "h",
+lb_s2 <- matrix(c("s", "s", "s", "s", "d", "h", "h", "h", "h", "h",
                   "s", "s", "s", "ds", "d", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "ds", "d", "d", "d", "h", "h", "h",
                   "s", "s", "s", "ds", "d", "d", "d", "d", "d", "h",
-                  "s", "s", "ds", "ds", "d", "d", "d", "d", "d", "h",
+                  "s", "s", "s", "ds", "d", "d", "d", "d", "d", "h",
+                  "s", "s", "s", "ds", "d", "d", "d", "d", "d", "h",
                   "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
                   "s", "s", "s", "s", "h", "h", "h", "h", "h", "h",
                   "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
                   "s", "s", "s", "h", "h", "h", "h", "h", "h", "h",
-                  "s", "s", "s", "h", "h", "h", "h", "h", "h", "h"),
+                  "s", "s", "s", "s", "h", "h", "h", "h", "h", "h"),
                 nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
 
-lb_sp1 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+lb_sp2 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "sp", "sp", "d", "sp", "sp", "sp",
-                   "sp", "s", "sp", "sp", "sp", "sp", "d", "sp", "sp", "sp",
-                   "sp", "s", "s", "sp", "sp", "h", "d", "h", "sp", "sp",
-                   "sp", "s", "sp", "sp", "h", "h", "d", "h", "h", "h",
+                   "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "s", "sp", "sp", "sp", "d", "h", "sp", "sp",
+                   "sp", "s", "sp", "sp", "sp", "h", "d", "h", "h", "h",
                    "sp", "s", "sp", "sp", "h", "h", "d", "h", "h", "h",
                    "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h",
                    "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h"),
                  nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
 
-lb_1 <- list(lb_h1, lb_s1, lb_sp1)
+lb_2 <- list(lb_h2, lb_s2, lb_sp2)
 
-# Simplified strategy following rules of thumb based on the perfect strategy
+# Simplified strategy following rules of thumb based on the basic strategy
 # https://blog.prepscholar.com/blackjack-strategy
-
-lb_h2 <- matrix(
+# Claims this is only 0.005 worse than the most advantageous game
+lb_h3 <- matrix(
   c("s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
@@ -531,7 +576,7 @@ lb_h2 <- matrix(
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h"),
   nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
 
-lb_s2 <- matrix(c("s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
+lb_s3 <- matrix(c("s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
                   "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
                   "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
                   "s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
@@ -543,7 +588,7 @@ lb_s2 <- matrix(c("s", "s", "s", "d", "d", "d", "h", "h", "h", "h",
                   "s", "s", "s", "h", "h", "h", "h", "h", "h", "h"),
                 nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
 
-lb_sp2 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
+lb_sp3 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
@@ -555,11 +600,13 @@ lb_sp2 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
                    "sp", "s", "s", "sp", "h", "h", "h", "h", "h", "h"),
                  nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
 
-lb_2 <- list(lb_h2, lb_s2, lb_sp2)
+lb_3 <- list(lb_h3, lb_s3, lb_sp3)
 
 
 # Logic board to mimic dealer logic with S17, stand on soft 17
-lb_h3 <- matrix(
+# Should have expected value of -5.7, quite horrible
+# Mostly because if both player and dealer bust, the player still loses
+lb_h4 <- matrix(
   c("s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h",
@@ -572,7 +619,7 @@ lb_h3 <- matrix(
     "s", "s", "s", "s", "s", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h", "h"),
   nrow = 19, byrow = FALSE, dimnames = list(rnames_h, cnames))
 
-lb_s3 <- matrix(c("s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
+lb_s4 <- matrix(c("s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
                   "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
                   "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
                   "s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
@@ -584,7 +631,7 @@ lb_s3 <- matrix(c("s", "s", "s", "s", "s", "h", "h", "h", "h", "h",
                   "s", "s", "s", "s", "s", "h", "h", "h", "h", "h"),
                 nrow = 10, byrow = FALSE, dimnames = list(rnames_s, cnames))
 
-lb_sp3 <- matrix(c("h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
+lb_sp4 <- matrix(c("h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
                    "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
                    "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
                    "h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
@@ -596,7 +643,7 @@ lb_sp3 <- matrix(c("h", "s", "s", "h", "h", "h", "h", "h", "h", "h",
                    "h", "s", "s", "h", "h", "h", "h", "h", "h", "h"),
                  nrow = 10, byrow = FALSE, dimnames = list(rnames_sp, cnames))
 
-lb_3 <- list(lb_h3, lb_s3, lb_sp3)
+lb_4 <- list(lb_h4, lb_s4, lb_sp4)
 
 
 # Independent replications method below
@@ -699,7 +746,9 @@ get_ir_cis_full <- function(z_bars, sample_vars, r_runs, alpha) {
 }
 
 
-# Batch means method below
+# Alternative batch means method below, works as well
+# Intended for non-independent card counting games
+# But not enough time to develop it further
 
 batch_games <- function(b_batches,
                         m_obs,
@@ -779,9 +828,18 @@ get_all_batch_cis <- function(yn_bars, vb_hats, n, alpha) {
 }
 
 
-# play_game(num_players = 1, initial_bet = 1, manual = TRUE, S_17 = TRUE, logic_board = lb_1)
-# play_game(num_players = 1, initial_bet = 1, manual = FALSE, S_17 = TRUE, logic_board = lb_1)
-
-# current_deck <- shuffle_deck(n_decks)
+# m_obs <- 5000
+# b_batches <- 100
+# 
+# df_5 <- batch_games(b_batches = b_batches,
+#                   m_obs = m_obs,
+#                   S_17 = TRUE,
+#                   logic_board = lb_1,
+#                   seed = 3489)
+# 
+# batch_means <- get_batch_means(df_5)
+# vb_hats <- get_batch_variance(batch_means, m_obs = m_obs)
+# yn_bar <- get_yn_bar(batch_means)
+# get_all_batch_cis(yn_bars = yn_bar, vb_hats = vb_hats, n = m_obs * b_batches, alpha = 0.01)
 
 

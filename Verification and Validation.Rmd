@@ -61,100 +61,12 @@ unlist(unlist(test_1, recursive = TRUE)[c(TRUE, FALSE)])
 
 
 ```{r}
-batch_games <- function(b_batches,
-                        m_obs,
-                        S_17,
-                        logic_board,
-                        seed){
-  
-  set.seed((seed))
-  long_run <- replicate(m_obs * b_batches,
-                        play_game(num_players = 1,
-                                  initial_bet = 1,
-                                  manual = FALSE,
-                                  S_17 = S_17,
-                                  logic_board = logic_board))
-  long_run <- data.frame(
-    game_outcomes = unlist(unlist(long_run, recursive = TRUE)[c(TRUE, FALSE)]),
-    bets = unlist(unlist(long_run, recursive = TRUE)[c(FALSE, TRUE)])) %>%
-    mutate(net = game_outcomes * bets)
-  long_run$batch_num <- cut(seq(nrow(long_run)), b_batches, labels = FALSE)
-  
-  return(long_run)
-}
 
 
-get_batch_means <- function(df) {
-  df %>% 
-    group_by(batch_num) %>% 
-    summarise(outcome_means = mean(game_outcomes),
-              bet_means = mean(bets),
-              net_means = mean(net))
-}
-
-
-get_batch_variance <- function(df, m_obs) {
-  df %>% 
-    mutate(across(contains("means"), ~ (. - mean(.)) ^2)) %>% 
-    summarise(across(contains("means"), ~ sum(.) * m_obs / (n() - 1) )) %>% 
-    rename_with(~ gsub("means", "variance", .), contains("means"))
-}
-
-
-get_batch_conf_interval <- function(yn_bar, vb_hat, n, alpha) {
-  t_value <- qt(1 - (alpha / 2), b_batches - 1)
-  lower_bound <- yn_bar - t_value * sqrt(vb_hat / n)
-  upper_bound <- yn_bar + t_value * sqrt(vb_hat / n)
-  return(c(lower_bound, upper_bound))
-}
-
-
-get_yn_bar <- function(df) {
-  df %>% 
-    ungroup() %>% 
-    summarise(outcome_mean = mean(outcome_means),
-              bet_mean = mean(bet_means),
-              net_mean = mean(net_means))
-}
-
-get_all_batch_cis <- function(yn_bars, vb_hats, n, alpha) {
-  ci_df <- data.frame()
-  
-  for (i in seq_along(yn_bars)) {
-    ci <- get_batch_conf_interval(yn_bar = yn_bars[[i]], 
-                      vb_hat = vb_hats[[i]], 
-                      n = n, 
-                      alpha = alpha)
-    ci_df[1, i] <- ci[1]
-    ci_df[2, i] <- ci[2]
-  }
-  colnames(ci_df) <- c("outcome", "bet", "net")
-  add_means <- yn_bars
-  colnames(add_means) <- c("outcome", "bet", "net")
-  ci_df <- ci_df %>%
-    bind_rows(add_means)
-  rownames(ci_df) <- c("lower", "upper", "mean")
-  ci_df <- ci_df[order(row.names(ci_df)), ]
-  return(ci_df)
-}
-
-
-m_obs <- 10000
-b_batches <- 30
-
-df <- batch_games(b_batches = b_batches,
-                  m_obs = m_obs,
-                  S_17 = TRUE,
-                  logic_board = lb_1,
-                  seed = 12345625)
-
-batch_means <- get_batch_means(df)
-vb_hats <- get_batch_variance(batch_means, m_obs = m_obs)
-yn_bar <- get_yn_bar(batch_means)
-get_all_batch_cis(yn_bars = yn_bar, vb_hats = vb_hats, n = m_obs * b_batches, alpha = 0.01)
 
 
 ```
+
 
 
 

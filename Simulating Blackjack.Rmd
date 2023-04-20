@@ -185,9 +185,9 @@ All strategies were simulated with 100 runs and 5000 observations per run, for a
 
 
 ```{r}
-# Each simulation took me around 2 minutes to run
-# There are three simulations below
-# So if you run this chunk, expect to wait roughly 6 minutes
+# Each simulation took around 2 minutes to run
+# There are 4 simulations below
+# So if you run this chunk, expect to wait roughly 8 minutes
 
 r_runs <- 100
 m_obs <- 5000
@@ -238,13 +238,30 @@ cis_3 <- get_ir_cis_full(z_bars = z_bars_3,
                        r_runs = r_runs,
                        alpha = alpha)
 
-kable(list(cis_2, 
-           cis_1 %>% 
+df_4 <- run_ir_games(r_runs = r_runs,
+                   m_obs = m_obs,
+                   S_17 = TRUE,
+                   logic_board = lb_4,
+                   seed = 3489, 
+                   required_cards = 52)
+  
+s_means_4 <- get_ir_sample_means(df_4)
+z_bars_4 <- get_ir_grand_sample_mean(get_ir_sample_means(df_4))
+sample_vars_4 <- get_ir_sample_variance(get_ir_sample_means(df_4))
+cis_4 <- get_ir_cis_full(z_bars = z_bars_4,
+                       sample_vars = sample_vars_4,
+                       r_runs = r_runs,
+                       alpha = alpha)
+
+kable(list(cis_3, 
+           cis_4 %>% 
              remove_rownames(),
-           cis_3),
-      caption = 'Strategies: Simplified Basic Strategy, Basic Strategy, Mimic Dealer (bottom)',
+           cis_1,
+           cis_2 %>% 
+             remove_rownames()),
+      caption = 'Strategies: Simplified, Mimic Dealer, Baldwin, Thorp',
       booktabs = TRUE,
-      valign = 't', 
+      valign = 't',
       linesep = "") %>% 
   kable_paper() %>% 
   kable_styling(latex_options = "HOLD_position")
@@ -256,10 +273,13 @@ kable(list(cis_2,
 
 
 
+
+
+
 ```{r}
 
 iterations <- 500000
-flip_results <- df_1$net
+flip_results <- df_2$net
 pct_head <- pct_head <- cumsum(flip_results) / seq_len(iterations)
 ggplot(mapping = aes(x=1:iterations,y=pct_head))+geom_line(linewidth=0.2) +
   ylim(-0.02 , 0.02) +
@@ -268,6 +288,9 @@ ggplot(mapping = aes(x=1:iterations,y=pct_head))+geom_line(linewidth=0.2) +
 
 
 
+```{r}
+
+```
 
 
 
