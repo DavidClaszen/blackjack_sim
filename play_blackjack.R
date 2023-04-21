@@ -517,7 +517,7 @@ lb_sp1 <- matrix(c("sp", "s", "sp", "sp", "sp", "sp", "d", "h", "sp", "sp",
 lb_1 <- list(lb_h1, lb_s1, lb_sp1)
 
 
-# Thorp's Beat the Dealer, expected value should be + 0.1
+# Thorp's Beat the Dealer
 # Small refinements from the basic strategy weren't implemented
 # These can't be executed following a simple matrix like below
 # For example, whether a player hand holds 2 or 3 cards
