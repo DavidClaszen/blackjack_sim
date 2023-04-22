@@ -14,6 +14,8 @@ knit: (function(inputFile, encoding) {
 # I have included an estimated run time for taxing code chunks. 
 # These are from my relatively rubbish laptop, so
 # as long as you're not using a potato, this should run faster
+# Knitting to PDF is also faster than running the chunks, 
+# I have timed it to around 6:30 minutes total
 
 knitr::opts_chunk$set(echo = FALSE)
 library(ggplot2)
@@ -422,6 +424,11 @@ kable(list(lb_h4[6:14, ], lb_s4[-1,], lb_sp4),
 
 \restoregeometry
 
+## Session Info
+
+```{r}
+print(sessionInfo())
+```
 
 
 
