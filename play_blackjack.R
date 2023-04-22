@@ -827,7 +827,6 @@ get_all_batch_cis <- function(yn_bars, vb_hats, n, alpha) {
   return(ci_df)
 }
 
-
 # m_obs <- 5000
 # b_batches <- 100
 # 
@@ -842,4 +841,23 @@ get_all_batch_cis <- function(yn_bars, vb_hats, n, alpha) {
 # yn_bar <- get_yn_bar(batch_means)
 # get_all_batch_cis(yn_bars = yn_bar, vb_hats = vb_hats, n = m_obs * b_batches, alpha = 0.01)
 
+
+# Functions for calculating approximate CI for differences in means
+
+get_approx_dof <- function(s_var_x, s_var_y, n, m) {
+  numer <- ((s_var_x / n) + (s_var_y / m)) ^2
+  denom <- ((s_var_x / n) ^2 / (n + 1) ) + ((s_var_y / m) ^2 / (m + 1) )
+  return( floor( (numer / denom) - 2 ) )
+}
+
+get_mean_diff_ci <- function(x_bar, y_bar, alpha, s_var_x, s_var_y, n, m) {
+  mid_point <- x_bar - y_bar
+  dof <- get_approx_dof(s_var_x, s_var_y, n, m)
+  t_val <- qt(1 - (alpha / 2), dof)
+  std_error <- sqrt( (s_var_x / n) + (s_var_y / m) )
+  lower <- mid_point - (t_val * std_error)
+  upper <- mid_point + (t_val * std_error)
+  
+  return(c(lower, mid_point, upper))
+}
 
