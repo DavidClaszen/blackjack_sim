@@ -15,7 +15,7 @@ knit: (function(inputFile, encoding) {
 # These are from my relatively rubbish laptop, so
 # as long as you're not using a potato, this should run faster
 # Knitting to PDF is also faster than running the chunks, 
-# I have timed it to around 6:30 minutes total
+# I have timed it to around 7 minutes total
 
 knitr::opts_chunk$set(echo = FALSE)
 library(ggplot2)
@@ -323,7 +323,7 @@ simp_vs_thorp <- get_mean_diff_ci(x_bar = z_bars_3$net_mean,
 
 The code currently does not support common random numbers and we will have to do with an approximate confidence interval for a difference in means.^[As each simulation uses the same starter seed for its replications, it begins a run using common random numbers, but only until a difference in strategy leads to a different number of cards being drawn, after which they diverge until the next run is started. Because there is so little difference between Baldwin *et al.* and Thorp, this does still result in identical outcomes for `r round(sum(df_1[, 1] == df_2[, 1]) / (r_runs * m_obs), 4) * 100`% of all simulated games between Baldwin *et al.* and Thorp, but it is not rigorous enough to assume CRNs.] Given an alpha of 0.05, the confidence interval for the difference between the two means is `r paste0("(", paste(round(simp_vs_thorp[c(1, 3)], 6), collapse = ", "), ")")`, with a mean difference of `r round(simp_vs_thorp[c(2)], 6)`. First, seeing as how this is entirely negative, Thorp's strategy has to be assumed to be better than the simplified version. 
 
-Second, while -0.002777 falls within this confidence interval, the lower bound is actually lower than -0.002777. This means that the claim that this simplified strategy will cost at most 1 hand in 12 hours against "perfect" blackjack will have to be rejected. Assuming 360 hands in 12 hours, the worst additional loss compared to Thorp at a 95% confidence interval is `r abs(round(simp_vs_thorp[c(1)] * 360, 6))` hands or `r round(abs(round(simp_vs_thorp[c(1)] * 360, 6)))` when rounded. Still, if you think it is acceptable to play with an expectation lower by `r round(simp_vs_thorp[c(3)], 6)` (with a confidence level of 95%) compared to Thorp's strategy - or in blackjack parlance, lose at most `r round(abs(round(simp_vs_thorp[c(1)] * 360, 6)))` more hand in 12 hours of play - then a simplified strategy such as the one included here might be worth using.
+Second, while -0.002777 falls within this confidence interval, the lower bound is actually lower than -0.002777. This means that the claim that this simplified strategy will cost at most 1 hand in 12 hours against "perfect" blackjack will have to be rejected. Assuming 360 hands in 12 hours, the worst additional loss compared to Thorp at a 95% confidence interval is `r abs(round(simp_vs_thorp[c(1)] * 360, 6))` hands or `r round(abs(round(simp_vs_thorp[c(1)] * 360, 6)))` when rounded. Still, if you think it is acceptable to play with an expectation lower by `r round(simp_vs_thorp[c(1)], 6)` (with a confidence level of 95%) compared to Thorp's strategy - or in blackjack parlance, lose at most `r round(abs(round(simp_vs_thorp[c(1)] * 360, 6)))` more hand in 12 hours of play - then a simplified strategy such as the one included here might be worth using.
 
 ```{r}
 baldwin_vs_thorp <- get_mean_diff_ci(x_bar = z_bars_1$net_mean,
@@ -335,7 +335,7 @@ baldwin_vs_thorp <- get_mean_diff_ci(x_bar = z_bars_1$net_mean,
                                   m = r_runs)
 ```
 
-Which of these strategies is the most profitable? Given that mimicking the dealer is so much worse than the other three strategies, this strategy won't be taken into further consideration. Above, the simplified strategy has also already proven to be statistically worse than Thorp's, which leaves us with Baldwin *et al.* against Thorp. From their net result confidence intervals alone they look nearly indistinguishable, and graphically as in chart 2 below they are also almost identical. Given an alpha of 0.05, the confidence interval for the difference between their two means is `r paste0("(", paste(round(baldwin_vs_thorp[c(1, 3)], 6), collapse = ", "), ")")`, with a mean difference of `r round(baldwin_vs_thorp[c(2)], 6)`. With 0 being within this confidence interval, we can't reject that they are equal and the result is thus inconclusive. Interestingly, the worst expected difference at 360 hands per 12 hours would even here be `r abs(round(baldwin_vs_thorp[c(1)] * 360, 2))` additional lost hands. Clearly, remarks on hands lost per duration of play shouldn't be made lightly.
+Which of these strategies is the most profitable? Given that mimicking the dealer is so much worse than the other three strategies, this strategy won't be taken into further consideration. Above, the simplified strategy has also already proven to be statistically worse than Thorp's, which leaves us with Baldwin *et al.* against Thorp. From their net result confidence intervals alone they look nearly indistinguishable, and graphically as in chart 2 below they are also almost identical. Given an alpha of 0.05, the confidence interval for the difference between their two means is `r paste0("(", paste(round(baldwin_vs_thorp[c(1, 3)], 6), collapse = ", "), ")")`, with a mean difference of `r format(round(baldwin_vs_thorp[c(2)], 6), scientific = FALSE)`. With 0 being within this confidence interval, we can't reject that they are equal and the result is thus inconclusive. Interestingly, the worst expected difference at 360 hands per 12 hours would even here be `r abs(round(baldwin_vs_thorp[c(1)] * 360, 2))` additional lost hands. Clearly, remarks on hands lost per duration of play shouldn't be made lightly.
 
 
 \vspace{12pt}
@@ -363,6 +363,29 @@ ggplot(strat_sample_means, aes(x=net_means, color=Strategy)) +
 ```
 
 
+
+Finally, it is worth mentioning the other means shown earlier, for game outcomes and bet sizes. One result that is true across all 4 strategies, is that, as the strategies become more successful, both the outcome and the bet size increases. This can also be explored graphically in charts 3 and 4 belows. If we reduce the outcomes to -1 for a loss, 0 for a draw, and 1 for a win, then the column wise table of observed probabilities per bet size for Thorp is as shown below. 
+
+While a strategy for bets of size 1 look like it should be mostly damage control, the real difference is being made with bets of a higher value. This hints at the idea that, not only is it important to win as often as possible, but also to bet as high as possible when chances are best, and that the strategy differences for doubling are particularly important. This idea was much more thoroughly utilized in the method of card counting for consecutive games on single decks, where the knowledge of a deck and thus its conditional probabilities would have to be updated after each visible card until the next shuffle. However, that would require a simulation of dependent games, which is not part of the current scope.
+
+
+```{r}
+round(prop.table(xtabs(~Outcomes + `Bet Size`,
+                       data= df_2 %>% 
+                         mutate(game_outcomes = case_when(
+                           game_outcomes == 0 ~ 0,
+                           game_outcomes == -1 ~ -1,
+                           game_outcomes > 0 ~ 1)) %>% 
+                         rename("Bet Size" = "bets",
+                                "Outcomes" = "game_outcomes")), 2), 6) %>% 
+  kable(caption = 'Thorp Strategy: Outcome Probability per Bet Size',
+      booktabs = TRUE,
+      valign = 't',
+      linesep = "") %>% 
+  kable_paper() %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
 ```{r}
 
 chart_3 <- ggplot(strat_sample_means, aes(x=outcome_means, color=Strategy)) +
@@ -389,26 +412,6 @@ chart_3 /
   chart_4
 ```
 
-
-Finally, it is worth mentioning the other means shown earlier, for game outcomes and bet sizes. One result that is true across all 4 strategies, is that, as the strategies become more successful, both the outcome and the bet size increases. This can also be explored graphically in charts 3 and 4 above. If we reduce the outcomes to -1 for a loss, 0 for a draw, and 1 for a win, then the column wise table of observed probabilities per bet size for Thorp is as shown below. While a strategy for bets of size 1 look like it should be mostly damage control, the real difference is being made with bets of a higher value. This hints at the idea that, not only is it important to win as often as possible, but also to bet as high as possible when chances are best, and that the strategy differences for doubling are particularly important. This idea was much more thoroughly utilized in the method of card counting for consecutive games on single decks, where the knowledge of a deck and thus its conditional probabilities would have to be updated after each visible card until the next shuffle. However, that would require a simulation of dependent games, which is not part of the current scope.
-
-
-```{r}
-round(prop.table(xtabs(~Outcomes + `Bet Size`,
-                       data= df_2 %>% 
-                         mutate(game_outcomes = case_when(
-                           game_outcomes == 0 ~ 0,
-                           game_outcomes == -1 ~ -1,
-                           game_outcomes > 0 ~ 1)) %>% 
-                         rename("Bet Size" = "bets",
-                                "Outcomes" = "game_outcomes")), 2), 6) %>% 
-  kable(caption = 'Thorp Strategy: Outcome Probability per Bet Size',
-      booktabs = TRUE,
-      valign = 't',
-      linesep = "") %>% 
-  kable_paper() %>% 
-  kable_styling(latex_options = "HOLD_position")
-```
 
 
 
