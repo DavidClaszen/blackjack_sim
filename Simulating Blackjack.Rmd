@@ -22,6 +22,7 @@ library(ggplot2)
 library(tidyverse)
 library(janitor)
 library(kableExtra)
+library(patchwork)
 source("play_blackjack.R")
 ```
 
@@ -51,7 +52,7 @@ One other strategy of the same family is an abbreviated version of the basic str
 The final strategy simply mirrors the dealer, hitting until the hand reaches a value of 17 or more. We use the dealer variation of S17, allowing to stand on a soft 17. According to Baldwin *et al.*, this strategy should have an expectation of -0.056, while according to Thorp the result should be -0.0573.^[Baldwin *et al.*, "The Optimum Strategy", 439; Thorp, *Beat the Dealer*, 38.] Given the agreement between Thorp and Baldwin *et al.*, simulating this strategy also serves as a decent validation to see whether the programmed dealer logic performs as it should. 
 
 
-# Code
+# Code, Simulations, and Results
 
 ## Simulating a Game
 
@@ -334,11 +335,7 @@ baldwin_vs_thorp <- get_mean_diff_ci(x_bar = z_bars_1$net_mean,
                                   m = r_runs)
 ```
 
-Finally, which of these strategies is the most profitable? Given that mimicking the dealer is so much worse than the other three strategies, this strategy won't be taken into further consideration. Above, the simplified strategy has also already proven to be statistically worse than Thorp's, which leaves us with Baldwin *et al.* against Thorp. From their net result confidence intervals alone they look nearly indistinguishable, and graphically as in chart 2 below they are also almost identical. Given an alpha of 0.05, the confidence interval for the difference between their two means is `r paste0("(", paste(round(baldwin_vs_thorp[c(1, 3)], 6), collapse = ", "), ")")`, with a mean difference of `r round(baldwin_vs_thorp[c(2)], 6)`. With 0 being within this confidence interval, we can't reject that they are equal and the result is thus inconclusive. Interestingly, the worst expected difference at 360 hands per 12 hours would even here be `r abs(round(baldwin_vs_thorp[c(1)] * 360, 2))` additional lost hands. Clearly, remarks on hands lost per duration of play shouldn't be made lightly.
-
-
-
-
+Which of these strategies is the most profitable? Given that mimicking the dealer is so much worse than the other three strategies, this strategy won't be taken into further consideration. Above, the simplified strategy has also already proven to be statistically worse than Thorp's, which leaves us with Baldwin *et al.* against Thorp. From their net result confidence intervals alone they look nearly indistinguishable, and graphically as in chart 2 below they are also almost identical. Given an alpha of 0.05, the confidence interval for the difference between their two means is `r paste0("(", paste(round(baldwin_vs_thorp[c(1, 3)], 6), collapse = ", "), ")")`, with a mean difference of `r round(baldwin_vs_thorp[c(2)], 6)`. With 0 being within this confidence interval, we can't reject that they are equal and the result is thus inconclusive. Interestingly, the worst expected difference at 360 hands per 12 hours would even here be `r abs(round(baldwin_vs_thorp[c(1)] * 360, 2))` additional lost hands. Clearly, remarks on hands lost per duration of play shouldn't be made lightly.
 
 
 \vspace{12pt}
@@ -361,12 +358,63 @@ ggplot(strat_sample_means, aes(x=net_means, color=Strategy)) +
                                         max(strat_sample_means$net_means), 
                                         by = 0.005), 2)) +
   theme_minimal() +
-  xlab("Percentages") +
+  xlab("Net Results") +
   ggtitle("Chart 2: Histograms of Strategy Sample Means of Net Results")
 ```
 
 
+```{r}
+
+chart_3 <- ggplot(strat_sample_means, aes(x=outcome_means, color=Strategy)) +
+  geom_histogram(alpha=0.2, position="identity", binwidth = 0.005) +
+  scale_color_manual(values=c("#FFFF00", "#CC3300", "#00CC00", "#0000FF")) +
+  scale_x_continuous(breaks = round(seq(min(strat_sample_means$outcome_means), 
+                                        max(strat_sample_means$outcome_means), 
+                                        by = 0.005), 2)) +
+  theme_minimal() +
+  xlab("Game Outcomes") +
+  ggtitle("Chart 3: Histograms of Strategy Sample Means of Game Outcomes")
+
+chart_4 <- ggplot(strat_sample_means, aes(x=bet_means, color=Strategy)) +
+  geom_histogram(alpha=0.2, position="identity", binwidth = 0.005) +
+  scale_color_manual(values=c("#FFFF00", "#CC3300", "#00CC00", "#0000FF")) +
+  scale_x_continuous(breaks = round(seq(min(strat_sample_means$bet_means), 
+                                        max(strat_sample_means$bet_means), 
+                                        by = 0.005), 2)) +
+  theme_minimal() +
+  xlab("Bet Sizes") +
+  ggtitle("Chart 4: Histograms of Strategy Sample Means of Bet Sizes")
+
+chart_3 /
+  chart_4
+```
+
+
+Finally, it is worth mentioning the other means shown earlier, for game outcomes and bet sizes. One result that is true across all 4 strategies, is that, as the strategies become more successful, both the outcome and the bet size increases. This can also be explored graphically in charts 3 and 4 above. If we reduce the outcomes to -1 for a loss, 0 for a draw, and 1 for a win, then the column wise table of observed probabilities per bet size for Thorp is as shown below. While a strategy for bets of size 1 look like it should be mostly damage control, the real difference is being made with bets of a higher value. This hints at the idea that, not only is it important to win as often as possible, but also to bet as high as possible when chances are best, and that the strategy differences for doubling are particularly important. This idea was much more thoroughly utilized in the method of card counting for consecutive games on single decks, where the knowledge of a deck and thus its conditional probabilities would have to be updated after each visible card until the next shuffle. However, that would require a simulation of dependent games, which is not part of the current scope.
+
+
+```{r}
+round(prop.table(xtabs(~Outcomes + `Bet Size`,
+                       data= df_2 %>% 
+                         mutate(game_outcomes = case_when(
+                           game_outcomes == 0 ~ 0,
+                           game_outcomes == -1 ~ -1,
+                           game_outcomes > 0 ~ 1)) %>% 
+                         rename("Bet Size" = "bets",
+                                "Outcomes" = "game_outcomes")), 2), 6) %>% 
+  kable(caption = 'Thorp Strategy: Outcome Probability per Bet Size',
+      booktabs = TRUE,
+      valign = 't',
+      linesep = "") %>% 
+  kable_paper() %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+
+
 # Conclusions
+
+
 
 
 \newgeometry{left=0.2in,right=0.2in,top=0.2in,bottom=0.2in}
