@@ -381,12 +381,14 @@ chart_3 /
   chart_4
 ```
 
-
+\clearpage
 
 
 # Conclusions
 
+To answer the question in the title, to hit or not to hit: it depends. But it depends strongly enough on knowable factors (your hand, the dealer's shown card), that it becomes possible to use a fairly simple set of three tables to guide your actions and limit losses, or even gain a profit (though the expectation for that is very, very slim). The simulations above show that a simplistic strategy such as mimicking the dealer should always be avoided, with a mean expected return of `r round(cis_4[2, 3], 6)`. If strictly following all rules in Thorpe or Baldwin *et al.* seems too much like work, then following a simplified version could be considered, but it will come at the price of a slightly lower return with a mean of `r round(cis_3[2, 3], 6)`, and possibly as much as `r ceiling(abs(round(simp_vs_thorp[c(1)] * 360, 6)))` hands per 12 hours of play, a bit higher than the internet will have you believe. For the best strategy, Thorp's has the highest expected mean at `r round(cis_2[2, 3], 6)`, but this is so close to Baldwin *et al*'s `r round(cis_1[2, 3], 6)` that there is no statistically significant difference. Either strategy should be perfectly fine. 
 
+Knowing what to do for independent games looks like a good foundation, but the better question might be, to hit hard or not at all. If doubles in Thorp's strategy are already placed optimally, the next step would be to explore whether dependent games create situations that might have a positive expectation as well.^[Thorp went on to explore this in great length through multiple card counting strategies. Interestingly, this also spawned a great many countermeasures, making casino games more and more independent again, either by shuffling after one or two games, or by using multiple decks at games.]
 
 
 \newgeometry{left=0.2in,right=0.2in,top=0.2in,bottom=0.2in}
