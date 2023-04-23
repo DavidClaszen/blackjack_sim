@@ -1,6 +1,9 @@
 # Cleanup 
 # rm(list = ls())
 
+# Necessary library for simulations
+library(dplyr)
+
 # Function to shuffle decks
 shuffle_deck <- function(n_decks){
   # Alternate deck full of split opportunities for some tests
@@ -59,11 +62,11 @@ hand_value <- function(cards){
 
 
 # Reporting function just for manual play and testing
-report_dealer <- function(dealer, only_face = TRUE){
-  if (only_face){
+report_dealer <- function(dealer, only_vis = TRUE){
+  if (only_vis){
     face_card <- dealer$hand[[1]]
     print(paste("The face card is:", face_card))
-  } else if (!only_face) {
+  } else if (!only_vis) {
     print(paste("Dealer had", paste(dealer$hand, collapse = ", "), 
                 "with a value of", hand_value(dealer$hand)))
   }
@@ -79,7 +82,7 @@ dealer_logic <- function(dealer, S_17 = TRUE, manual = FALSE, indep = FALSE){
     # Check whether hand is hard or not regardless of aces
     is_hard <- ((sum(current_hand) + 10) > 21)
     
-    # Make sure there's still cards in deck before drawing if debugging
+    # Make sure there's still cards in deck before drawing, only for debugging
     if (indep) { reshuffle_check(required_cards = 52) }
     # If below 17, hit
     if (hand_value(current_hand) < 17) {
@@ -118,7 +121,7 @@ dealer_plays <- function(S_17 = TRUE, indep = TRUE) {
 
 
 player_logic <- function(player, dealer, initial_bet, manual, 
-                         S_17, got_split, logic_board, debug = FALSE){
+                         S_17, got_split, logic_board){
   # Initiate variables
   action <- ""
   counter <- 0
@@ -178,18 +181,11 @@ player_logic <- function(player, dealer, initial_bet, manual,
     
   } else if (!manual) {
     
-    if (debug) {
-      print("Player print in player_logic at location 001")
-      print(player)      
-    }
-    
     # While not stand (s), double (d), split (sp), keep getting new actions
     while (!(action %in% c("s", "d", "sp"))) {
       counter <- counter + 1
       can_split <- counter == 1 & length(unique(player$hand)) == 1
       can_double <- counter == 1
-      
-      # Figure out rules for doubles 
       
       # If can split and hasn't been split before, logic board for splits
       if (can_split & !got_split) {
@@ -200,32 +196,14 @@ player_logic <- function(player, dealer, initial_bet, manual,
         # Else use hard logic board, no aces
       } else {lb_to_play <- logic_board[[1]]}
       
-      # Print debugging below
-      if (debug) {
-        print("Player hand, dealer hand, logic board, player_logic at location 002")
-        print(player$hand)
-        print(dealer$hand)
-        print(lb_to_play)        
-      }
-      
       if (can_split & !got_split) {
         player_lb_loc <- paste(player$hand, collapse = ", ")
         
         # Truncate below to deal with 21.5 values for blackjack
       } else {player_lb_loc <- paste(trunc(hand_value(player$hand)))}
       
-      if (debug) {
-        print("Print location in matrix to play, player_logic at location 003")
-        print(player_lb_loc)        
-      }
-      
       action <- lb_to_play[player_lb_loc,
                            as.character(dealer$hand[1])]
-      
-      if (debug) {
-        print("Print action, player_logic at location 004")
-        print(action)        
-      }
       
       # If want to double and can, then double
       if (grepl("d", action) & can_double) {
@@ -240,36 +218,18 @@ player_logic <- function(player, dealer, initial_bet, manual,
                                manual = manual, S_17 = S_17, 
                                logic_board = logic_board)
       
-      if (debug) {
-        # If hand was a split, 2 games were called from inside player_actions
-        # Return value is then a list of results of those two games
-        # Thus no player attribute names
-        print("Print player after action, player_logic at location 005")
-        print(player)
-        print("Class of player: ")
-        print(class(player))
-        print("Type")
-        print(typeof(player))
-        print("Attributes")
-        print(attributes(player))        
-      }
+      # If hand was a split, 2 games were called from inside player_actions
+      # Return value is then a list of results of those two games
+      # Thus no player attribute names
+      # TODO This creates problems if you want multiple players
+      # TODO Also creates problems for running dependent games
       
-      if (!("names" %in% names(attributes(player)))) {
-        if (debug) {
-          print("No attributes detected at player_logic location 006, returning player")  
-        }
-        
-        return(player)
-      }
+      if (!("names" %in% names(attributes(player)))) { return(player) }
       
       # If bust, return hand
       if (hand_value(player$hand) == 0) {
         return(player)
       }
-    }
-    if (debug) {
-      print("Print return value from player_logic at location 007")
-      print(player)      
     }
     return(player)
   }
@@ -277,14 +237,7 @@ player_logic <- function(player, dealer, initial_bet, manual,
 
 
 player_actions <- function(player, dealer, action,
-                           manual, S_17, debug = FALSE, logic_board){
-  if (debug) {
-    print("Hand and actions received at player_actions location 008")
-    print(player)
-    print(action)
-    print("Dealer:")
-    print(dealer)    
-  }
+                           manual, S_17, logic_board){
   
   if (action == "h") {
     player$hand <- c(player$hand, deal_cards(n_cards = 1))
@@ -305,13 +258,6 @@ player_actions <- function(player, dealer, action,
     player_2$hand <- c(player_2$hand, deal_cards(n_cards = 1))
     player$hand <- player$hand[1]
     player$hand <- c(player$hand, deal_cards(n_cards = 1))
-    
-    if (debug) {
-      print("Print players after split at player_actions location 009")
-      print("INSIDE OF SEPARATE SPLIT GAMES AFTER THIS LINE -----------------")
-      print(player)
-      print(player_2)      
-    }
     
     play_game(player_list = list(player, player_2),
               dealer = dealer, got_split = TRUE,
@@ -339,8 +285,7 @@ get_result_average <- function(x) {
 
 play_game <- function(num_players = 1, initial_bet = 1, logic_board,
                       manual = FALSE, S_17 = TRUE, player_list = NULL, 
-                      dealer = NULL, got_split = FALSE, debug = FALSE, 
-                      required_cards = 52){
+                      dealer = NULL, got_split = FALSE, required_cards = 52){
   # Technically, order of cards dealt is different, but shouldn't matter too much
   # For convenience, dealer is dealt first, then players, each 2 cards
   # We'll also assume all players behave and bet the same for now
@@ -371,7 +316,7 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
 
     for (player in player_list) {
       # Report face card
-      report_dealer(dealer, only_face = TRUE)
+      report_dealer(dealer, only_vis = TRUE)
       # Player decides what to do based on hand, visible face card, or manual
       player_result <- player_logic(player, dealer, initial_bet,
                                     manual = manual, S_17 = S_17, 
@@ -379,14 +324,14 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
                                     logic_board = logic_board)
       # Report dealer cards if player went bust already
       if (hand_value(player_result$hand) == 0) {
-        report_dealer(dealer, only_face = FALSE)
+        report_dealer(dealer, only_vis = FALSE)
       } else {
         # Dealer plays according to set logic
         # But we can use stand on soft 17 (TRUE) or stand on hard 17 rule (FALSE)
         dealer <- dealer_logic(dealer, S_17 = S_17, manual = manual)
         # Report outcome
         outcome <- game_outcome(hand_value(player_result$hand), hand_value(dealer$hand))
-        report_dealer(dealer, only_face = FALSE)
+        report_dealer(dealer, only_vis = FALSE)
         if (outcome == 1.5) {
           result_txt <- paste("Blackjack! You win", outcome, "times", player_result$bet)
         } else if (outcome == 1) {
@@ -407,29 +352,20 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
     # Get final player hands based on dealer hand and player logic
     for (player in player_list) {
       
-      if (debug) {
-        print("Print player in play game function at play_game location 010")
-        print(player)        
-      }
-      
       player_results <- append(player_results,
                                list(player_logic(player, dealer, initial_bet,
                                             manual = manual, S_17 = S_17, 
                                             got_split = got_split, 
                                             logic_board = logic_board)))
-      if (debug) {
-        print("Print player result value at play_game location 011")
-        print(player_results)        
-      }
+
     }
 
-    # If a previous run was for two splits, player_logic returns a list of their results
+    # If a previous run was for two splits, player_logic returns a list of results
     # Doesn't contain attributes, so in that case, return results
     # But these are now two hands, two highly correlated games, 
-    # so we need the average to get the real outcome for the entire game
+    # so we average to get the real outcome for the entire game
     if (!("names" %in% names(attributes(player_results[[1]])))) {
-      if (debug) {print("No attributes detected, returning results at play_game location 012") }
-      return(get_result_average(unlist(player_results)))
+      return(player_results)
     }        
         
     # Check whether all players went bust, in that case dealer doesn't need to draw
@@ -447,29 +383,22 @@ play_game <- function(num_players = 1, initial_bet = 1, logic_board,
     
     for (player in player_results) {
       if (hand_value(player$hand) == 0) {
-        if (debug) {print("Adding lost game to list of results at play_game location 013")}
         game_results <- append(game_results, c(-1, player$bet))
       } else {
-        if (debug) {print("Getting result of game at play_game location 014")}
         outcome <- game_outcome(hand_value(player$hand), hand_value(dealer$hand))
         game_results <- append(game_results, c(outcome, player$bet))
-        if (debug) {
-          print("Printing current results at play_game location 014")
-          print(game_results)
-        }
       }
     }
-    if (debug) {print("Results printed, output below should be return from function -----") }
     return(game_results)
   }
 }
 
 
 # Creation of logic boards for hard, soft totals, and splits
-# Columns are face card values, rows are player totals
+# Columns are visible dealer card values, rows are player totals
 # s = stand, h = hit, sp = split
 # d = double if possible else hit, ds = double if possible else stand
-# Not the most...user friendly, constructed on column by column basis
+# TODO Not the most user friendly, constructed on column by column basis
 rnames_h <- c(21:3)
 rnames_s <- c(21:12)
 rnames_sp <- c("1, 1", "10, 10", "9, 9", "8, 8", "7, 7", 
@@ -562,7 +491,7 @@ lb_2 <- list(lb_h2, lb_s2, lb_sp2)
 
 # Simplified strategy following rules of thumb based on the basic strategy
 # https://blog.prepscholar.com/blackjack-strategy
-# Claims this is only 0.005 worse than the most advantageous game
+# Claims this is only 1 hand in 12 hours worse than the most advantageous game
 lb_h3 <- matrix(
   c("s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
     "s", "s", "s", "s", "s", "s", "s", "s", "s", "s", "d", "d", "d", "h", "h", "h", "h", "h", "h",
@@ -673,14 +602,15 @@ run_ir_games <- function(r_runs,
     run_df <- data.frame(
       game_outcomes = unlist(unlist(run_results, recursive = TRUE)[c(TRUE, FALSE)]),
       bets = unlist(unlist(run_results, recursive = TRUE)[c(FALSE, TRUE)]),
-      run_num = i)
+      run_num = i) %>% 
+      head(m_obs)
     
     simulation_results <- simulation_results %>% 
       bind_rows(run_df)
   }
   
   simulation_results <- simulation_results %>%
-    mutate(net = game_outcomes * bets)
+    mutate(net = game_outcomes * bets) 
   
   
   return(simulation_results)
@@ -766,7 +696,8 @@ batch_games <- function(b_batches,
   long_run <- data.frame(
     game_outcomes = unlist(unlist(long_run, recursive = TRUE)[c(TRUE, FALSE)]),
     bets = unlist(unlist(long_run, recursive = TRUE)[c(FALSE, TRUE)])) %>%
-    mutate(net = game_outcomes * bets)
+    mutate(net = game_outcomes * bets) %>% 
+    head(b_batches * m_obs)
   long_run$batch_num <- cut(seq(nrow(long_run)), b_batches, labels = FALSE)
   
   return(long_run)
